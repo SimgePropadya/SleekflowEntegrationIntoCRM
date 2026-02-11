@@ -47,7 +47,7 @@
             <header class="top-bar">
                 <div class="top-bar-left">
                     <button class="btn-icon" id="openSidebar" type="button" onclick="window.toggleSidebar(); return false;">☰</button>
-                    <h1>Sleekflow Inbox</h1>
+                    <h1>Sleekflow Inbox!</h1> <!-- TEMP doğrulama -->
                 </div>
                 <div class="top-bar-right" style="display: flex; align-items: center; gap: 8px;">
                     <select id="channelFilterTop" class="sender-select" title="Choose Sender" style="margin: 0; width: auto; min-width: fit-content; padding-right: 36px;">
@@ -3025,6 +3025,18 @@
             let filteredConversations = filteredByChannel;
             
             if (!showAll && leadName && leadName.trim() !== '') {
+                console.log('🔍 Lead filtre debug', {
+                    leadName,
+                    leadPhoneForMatch,
+                    sample: filteredByChannel.slice(0, 5).map(conv => ({
+                        contactName: conv.contactName,
+                        phoneNumber: conv.phoneNumber,
+                        customerPhone: conv.customerPhone,
+                        fromPhone: conv.fromPhone,
+                        rawPhoneNumber: conv.rawPhoneNumber,
+                        customerName: conv.customer?.name
+                    }))
+                });
                 filteredConversations = filteredByChannel.filter(conv => {
                     const contactName = (conv.contactName || '').trim();
                     if (contactName && !/^(bilinmeyen|unknown)$/i.test(contactName)) {
