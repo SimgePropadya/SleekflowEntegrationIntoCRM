@@ -3050,8 +3050,32 @@
                     filteredConversations = filteredByChannel.filter(conv => {
                         const contactName = (conv.contactName || '').trim();
                         
-                        if (hasLeadName && contactName && !/^(bilinmeyen|unknown)$/i.test(contactName)) {
-                            if (matchNames(leadName, contactName)) {
+                        if (hasLeadName) {
+                            const candidateNames = [
+                                contactName,
+                                conv.displayName,
+                                conv.customerName,
+                                conv.customer?.name,
+                                conv.customer?.fullName,
+                                conv.customer?.displayName,
+                                conv._rawConversation?.customer?.name,
+                                conv._rawConversation?.customer?.fullName,
+                                conv._rawConversation?.customer?.displayName,
+                                conv._rawConversation?.userProfile?.name,
+                                conv._rawConversation?.userProfile?.fullName,
+                                conv._rawConversation?.userProfile?.displayName,
+                                conv._rawConversation?.conversationName,
+                                conv._rawConversation?.conversationTitle,
+                                conv._rawConversation?.whatsappProfileName,
+                                conv._rawConversation?.instagramProfileName,
+                                conv.lastMessage?.customerName,
+                                conv.lastMessage?.contactName,
+                                conv.lastMessage?.senderName
+                            ]
+                                .map(name => (typeof name === 'string' ? name.trim() : ''))
+                                .filter(name => name && !/^(bilinmeyen|unknown)$/i.test(name));
+                            
+                            if (candidateNames.some(name => matchNames(leadName, name))) {
                                 return true;
                             }
                         }
