@@ -598,6 +598,21 @@
                     window.leadName = leadName || ''; // ✅ FULL_NAME - FİLTRELEME İÇİN KULLANILACAK
                     window.leadPhone = leadPhone || '';
                     window.leadEmail = leadEmail || '';
+
+                    // ✅ Lead değiştiğinde tüm sender state'lerini sıfırla (showAll/filteredConversations)
+                    if (window.conversationsState) {
+                        window.conversationsState.showAll = false;
+                        window.conversationsState.filteredConversations = [];
+                    }
+                    if (window.conversationsStateBySender && typeof window.conversationsStateBySender === 'object') {
+                        Object.keys(window.conversationsStateBySender).forEach(senderKey => {
+                            const senderState = window.conversationsStateBySender[senderKey];
+                            if (senderState && typeof senderState === 'object') {
+                                senderState.showAll = false;
+                                senderState.filteredConversations = [];
+                            }
+                        });
+                    }
                     
                     console.log('✅✅✅✅✅ Global variables SET:');
                     console.log('   window.leadId:', window.leadId);
@@ -3355,6 +3370,12 @@
                     // ✅ 4. State'i yeni sender için ayarla
                     const senderState = getCurrentSenderState();
                     senderState.currentConversationId = null;
+                    senderState.showAll = false;
+                    senderState.filteredConversations = [];
+                    if (window.conversationsState) {
+                        window.conversationsState.showAll = false;
+                        window.conversationsState.filteredConversations = [];
+                    }
                     
                     // ✅ 5. Sender seçildiğinde WhatsApp filtresini aktif et
                     const channelFilter = document.getElementById('channelFilter');
@@ -3390,8 +3411,8 @@
                                     
                                     // ✅ Conversation'ları sender'a özel state'e kaydet ve render et
                                     senderState.allConversations = conversations;
-                                    const showAll = senderState.showAll || false;
-                                    renderConversationsDirectly(conversations, showAll);
+                                    senderState.showAll = false;
+                                    renderConversationsDirectly(conversations, false);
                                     console.log('✅ Conversation\'lar yüklendi ve render edildi:', conversations.length);
                                 } else {
                                     console.error('❌ Conversation\'lar yüklenemedi:', convResponse.status);
@@ -3431,8 +3452,8 @@
                                     
                                     // ✅ Conversation'ları default state'e kaydet ve render et
                                     senderState.allConversations = conversations;
-                                    const showAll = senderState.showAll || false;
-                                    renderConversationsDirectly(conversations, showAll);
+                                      senderState.showAll = false;
+                                      renderConversationsDirectly(conversations, false);
                                     console.log('✅ Tüm conversation\'lar yüklendi:', conversations.length);
                                 } else {
                                     console.error('❌ Conversation\'lar yüklenemedi:', convResponse.status);
