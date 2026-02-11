@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https:; frame-ancestors 'self' https://crm.zoho.com;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleekflow Inbox - Zoho CRM Widget</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar - Settings & Connection -->
+        <aside class="sidebar open" id="sidebar">
+            <div class="sidebar-header">
+                <h2>⚙️ Ayarlar</h2>
+                <button class="btn-icon" id="toggleSidebar" type="button" onclick="window.toggleSidebar(); return false;">✕</button>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Sleekflow Connection -->
+                <div class="settings-section">
+                    <h3>📱 Sleekflow Platform API</h3>
+                    <div class="form-group">
+                        <label>Platform API Anahtarı <span style="color: #ef4444;">*</span></label>
+                        <input type="password" id="sleekflowApiKey" class="input-field" placeholder="API anahtarınızı buraya yapıştırın" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Bölge (Base URL)</label>
+                        <select id="sleekflowBaseUrl" class="input-field">
+                            <option value="https://sleekflow-core-app-weu-production.azurewebsites.net">West Europe (Önerilen)</option>
+                            <option value="https://api.sleekflow.io">Hong Kong</option>
+                            <option value="https://sleekflow-core-app-eus-production.azurewebsites.net">United States</option>
+                            <option value="https://sleekflow-core-app-seas-production.azurewebsites.net">Singapore</option>
+                            <option value="https://sleekflow-core-app-uaen-production.azurewebsites.net">UAE North</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-block" id="connectSleekflow">🔗 SleekFlow'a Bağlan</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <div class="main-area">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="btn-icon" id="openSidebar" type="button" onclick="window.toggleSidebar(); return false;" style="background: #3b82f6 !important; color: white !important; padding: 10px 15px !important; border-radius: 6px !important; font-size: 18px !important; font-weight: bold !important; cursor: pointer !important; z-index: 10001 !important; position: relative !important;">☰ AYARLAR</button>
+                    <h1>Sleekflow Inbox</h1>
+                </div>
+                <div class="top-bar-right">
+                    <button class="btn-icon" id="refreshConversations" title="Yenile">🔄</button>
+                </div>
+            </header>
+
+            <!-- Chat Layout -->
+            <div class="chat-layout">
+                <!-- Conversations List -->
+                <div class="conversations-panel" id="conversationsPanel">
+                    <div class="conversations-header">
+                        <h2>Konuşmalar</h2>
+                        <select id="channelFilter" class="sender-select" title="Kanal Filtrele">
+                            <option value="">Tüm Kanallar</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="sms">SMS</option>
+                            <option value="line">LINE</option>
+                            <option value="wechat">WeChat</option>
+                            <option value="web">Web</option>
+                        </select>
+                        <input type="text" id="searchConversations" class="search-input" placeholder="🔍 Ara...">
+                    </div>
+                    
+                    <!-- Lead filter info bar -->
+                    <div id="leadFilterInfo" class="lead-filter-info" style="display:none;"></div>
+                    
+                    <div class="conversations-list" id="conversationsList" style="flex: 1; overflow-y: auto;">
+                        <div class="empty-state">
+                            <p>📭 Henüz konuşma yok</p>
+                            <p class="empty-hint">Sleekflow'a bağlanın ve konuşmaları görüntüleyin</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Leads Follow-Up Grubu Bölümü KALDIRILDI -->
+                </div>
+
+                <!-- Chat View -->
+                <div class="chat-view" id="chatView">
+                    <div class="chat-empty">
+                        <div class="empty-icon">💬</div>
+                        <h2>Bir konuşma seçin</h2>
+                        <p>Sol taraftan bir konuşma seçerek mesajları görüntüleyin</p>
+                    </div>
+
+                    <!-- Active Chat -->
+                    <div class="chat-active" id="chatActive" style="display: none;">
+                        <!-- Chat Header -->
+                        <div class="chat-header">
+                            <div class="chat-header-info">
+                                <div class="chat-avatar" id="chatAvatar">👤</div>
+                                <div>
+                                    <h3 id="chatContactName">İsim</h3>
+                                    <span class="chat-meta" id="chatMeta">Durum</span>
+                                </div>
+                            </div>
+                            <div class="chat-header-actions">
+                                <!-- Leads Follow-Up yönlendirme butonu KALDIRILDI -->
+                            </div>
+                        </div>
+
+                        <!-- Messages Area -->
+                        <div class="messages-area" id="messagesArea">
+                            <div class="messages-list" id="messagesList">
+                                <!-- Messages will be inserted here -->
+                            </div>
+                        </div>
+
+                        <!-- Message Input -->
+                        <div class="message-input-area">
+                            <div class="message-input-wrapper">
+                                <input 
+                                    type="file" 
+                                    id="fileInput" 
+                                    class="file-input" 
+                                    multiple
+                                    accept="image/*,video/*,audio/*,.pdf"
+                                    style="display: none;"
+                                >
+                                <button class="btn btn-icon" id="attachFile" title="Dosya ekle" style="margin-right: 5px; padding: 8px 12px;">📎</button>
+                                <input 
+                                    type="text" 
+                                    id="messageInput" 
+                                    class="message-input" 
+                                    placeholder="Mesaj yazın..."
+                                    disabled
+                                >
+                                <button class="btn btn-primary" id="sendMessage" disabled>Gönder</button>
+                            </div>
+                            <div id="selectedFilesContainer" class="selected-files-container" style="display: none;">
+                                <!-- Seçilen dosyalar burada gösterilecek -->
+                            </div>
+                            <!-- Show All Conversations Button (sadece filtrelenmiş modda görünür) -->
+                            <div id="showAllConversationsButtonContainer" style="display: none; padding: 10px; text-align: center; border-top: 1px solid #e0e0e0; background: #f9f9f9;">
+                                <button class="btn btn-secondary" id="showAllConversationsInChat" style="width: 100%; padding: 12px; font-size: 14px; cursor: pointer;">
+                                    📋 Tüm Konuşmaları Göster
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="overlay" id="loadingOverlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Yükleniyor...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================ -->
+    <!-- 🚀 ZOHO SDK İLE LEAD NAME ÇEKME (EN DOĞRU YÖNTEM) -->
+    <!-- ============================================ -->
+    <!-- Zoho CRM Widget SDK -->
+    <script src="https://static.zohocdn.com/crm/v2.0/sdk/js/ZohoEmbededAppSDK.min.js"></script>
+    
+    <script>
+        // ✅ BASİT DEĞİŞKENLER: Lead bilgilerini tutmak için (global window'a da ekle)
+        window.leadId = null;
+        window.leadName = null;  // ✅ BASİT: Lead name değişkeni (app.js'den erişilebilir)
+        window.leadPhone = null;
+        window.leadEmail = null;
+        
+        // ✅ Kısa isimler için değişkenler
+        let leadId = window.leadId;
+        let leadName = window.leadName;
+        let leadPhone = window.leadPhone;
+        let leadEmail = window.leadEmail;
+        
+        // ✅ KESİN ÇÖZÜM: Widget URL'inden lead ID çıkar (query parameter veya hash)
+        function getLeadIdFromWidgetURL() {
+            try {
+                // YÖNTEM 1: Query parameter (leadId=...)
+                const params = new URLSearchParams(window.location.search);
+                let foundLeadId = params.get('leadId');
+                
+                // Placeholder kontrolü
+                if (foundLeadId && (foundLeadId.includes('$') || foundLeadId.includes('{') || foundLeadId.includes('CRM_RECORD_ID'))) {
+                    foundLeadId = null;
+                }
+                
+                // YÖNTEM 2: Hash (#leadId=...)
+                if (!foundLeadId && window.location.hash) {
+                    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                    foundLeadId = hashParams.get('leadId');
+                    if (foundLeadId && (foundLeadId.includes('$') || foundLeadId.includes('{') || foundLeadId.includes('CRM_RECORD_ID'))) {
+                        foundLeadId = null;
+                    }
+                }
+                
+                // YÖNTEM 3: URL'den direkt çıkar (son / dan sonraki sayı)
+                if (!foundLeadId) {
+                    const urlPath = window.location.pathname;
+                    const lastSlashIndex = urlPath.lastIndexOf('/');
+                    if (lastSlashIndex !== -1) {
+                        const afterLastSlash = urlPath.substring(lastSlashIndex + 1);
+                        if (/^\d{10,}$/.test(afterLastSlash)) {
+                            foundLeadId = afterLastSlash;
+                            console.log('✅✅✅ URL path\'den leadId çıkarıldı:', foundLeadId);
+                        }
+                    }
+                }
+                
+                return foundLeadId;
+            } catch (e) {
+                console.error('❌ getLeadIdFromWidgetURL hatası:', e);
+                return null;
+            }
+        }
+        
+        // ✅ KESİN ÇÖZÜM: Widget URL'inden lead ID çıkar, backend'den ismini al!
+        function getLeadNameFromWidgetURL() {
+            try {
+                const foundLeadId = getLeadIdFromWidgetURL();
+                
+                if (foundLeadId) {
+                    console.log('✅✅✅ Widget URL\'den lead ID bulundu, backend\'den ismi çekiliyor:', foundLeadId);
+                    
+                    // Backend'den lead ismini çek
+                    const API_BASE_URL = `${window.location.origin}/api`;
+                    fetch(API_BASE_URL + '/zoho/lead-info?id=' + encodeURIComponent(foundLeadId))
+                        .then(res => res.json())
+                        .then(lead => {
+                            const name = lead.Full_Name || lead.Last_Name || lead.name || null;
+                            if (name) {
+                                console.log('✅✅✅✅✅ Backend\'den lead ismi alındı (Widget URL):', name);
+                                window.leadName = name;
+                                window.leadId = foundLeadId;
+                                window.leadPhone = lead.phone || lead.Phone || '';
+                                window.leadEmail = lead.email || lead.Email || '';
+                                
+                                leadName = window.leadName;
+                                leadId = window.leadId;
+                                leadPhone = window.leadPhone;
+                                leadEmail = window.leadEmail;
+                                
+                                // Event gönder
+                                window.dispatchEvent(
+                                    new CustomEvent('zohoLeadDataLoaded', { detail: { id: foundLeadId, name: name } })
+                                );
+                                
+                                if (typeof loadConversations === 'function') {
+                                    loadConversations(false);
+                                }
+                            }
+                        })
+                        .catch(err => console.error('❌ Backend lead ismi çekme hatası:', err));
+                } else {
+                    console.log('⚠️ Widget URL\'den lead ID bulunamadı. Widget URL:', window.location.href);
+                }
+            } catch (e) {
+                console.error('❌ getLeadNameFromWidgetURL hatası:', e);
+            }
+        }
+        
+        // ✅ HEMEN widget URL'den lead ismini oku!
+        setTimeout(() => {
+            if (!window.leadName) {
+                getLeadNameFromWidgetURL();
+            }
+        }, 100); // 100ms bekle, sayfa yüklensin
+        
+        // ✅ ZOHO SDK İLE LEAD NAME ÇEKME - KRİTİK: DOM ready'de çalışmalı
+        function initZohoLead() {
+            console.log('🔍 initZohoLead çağrıldı');
+            console.log('   ZOHO var mı?', typeof ZOHO !== 'undefined' ? 'EVET' : 'HAYIR');
+            console.log('   ZOHO.embeddedApp var mı?', typeof ZOHO !== 'undefined' && ZOHO.embeddedApp ? 'EVET' : 'HAYIR');
+            
+            // ✅ KRİTİK: ZOHO SDK'nın yüklendiğini kontrol et
+            if (typeof ZOHO === 'undefined' || !ZOHO.embeddedApp) {
+                console.error('❌❌❌ ZOHO SDK YÜKLENMEMİŞ! Tekrar deneniyor...');
+                // 500ms sonra tekrar dene
+                setTimeout(() => {
+                    if (typeof ZOHO !== 'undefined' && ZOHO.embeddedApp) {
+                        console.log('✅ ZOHO SDK yüklendi, şimdi başlatılıyor...');
+                        initZohoLead();
+                    } else {
+                        console.error('❌ ZOHO SDK hala yüklenmemiş, fallback kullanılacak');
+                        console.error('   Bu, widget\'in external URL olarak eklenmiş olabileceğini gösterir!');
+                        console.error('   Widget ZIP widget olarak eklenmeli!');
+                        tryFallbackLeadId();
+                    }
+                }, 500);
+                return;
+            }
+            
+            console.log('🚀 Zoho SDK başlatılıyor...');
+            
+            // ✅ KRİTİK: PageLoad event'ini dinle
+            ZOHO.embeddedApp.on("PageLoad", async function (data) {
+                console.log('🔵🔵🔵 Zoho PageLoad event TETİKLENDİ:', data);
+                
+                const entity = data.Entity;      // "Leads"
+                const recordId = data.EntityId;  // o lead'in ID'si
+                
+                console.log('   Entity:', entity);
+                console.log('   RecordId:', recordId);
+                
+                if (entity !== "Leads" || !recordId) {
+                    console.log('⚠️ Lead sayfasında değiliz. Entity:', entity, 'RecordId:', recordId);
+                    return;
+                }
+                
+                try {
+                    console.log('📡 Zoho API\'den lead kaydı çekiliyor...', { Entity: entity, RecordID: recordId });
+                    
+                    const resp = await ZOHO.CRM.API.getRecord({
+                        Entity: entity,
+                        RecordID: recordId
+                    });
+                    
+                    console.log('🔵 Zoho getRecord response:', resp);
+                    
+                    if (!resp.data || !resp.data.length) {
+                        console.log('⚠️ Zoho API\'den lead data gelmedi');
+                        return;
+                    }
+                    
+                    const lead = resp.data[0];
+                    console.log('✅ Zoho Lead Data:', lead);
+                    
+                    // Full_Name = Lead Name (Zoho'da bu alan)
+                    const fullName = lead.Full_Name || 
+                                   ((lead.First_Name || "") + " " + (lead.Last_Name || "")).trim() ||
+                                   lead.Last_Name ||
+                                   'Bilinmeyen';
+                    
+                    const phone = lead.Phone || lead.Mobile || '';
+                    const email = lead.Email || '';
+                    
+                    // ✅ KRİTİK: Global window değişkenlerine ata (app.js'den erişilebilir)
+                    window.leadId = recordId;
+                    window.leadName = fullName;  // ✅ BASİT: Lead name değişkene atandı!
+                    window.leadPhone = phone;
+                    window.leadEmail = email;
+                    
+                    // ✅ Kısa isimler için de güncelle
+                    leadId = window.leadId;
+                    leadName = window.leadName;
+                    leadPhone = window.leadPhone;
+                    leadEmail = window.leadEmail;
+                    
+                    console.log('✅✅✅✅✅ Lead Name SET EDİLDİ (Zoho SDK):');
+                    console.log('   window.leadId:', window.leadId);
+                    console.log('   window.leadName:', window.leadName);  // ✅ Lead name değişkende!
+                    console.log('   window.leadPhone:', window.leadPhone);
+                    console.log('   window.leadEmail:', window.leadEmail);
+                    
+                    // ✅ Eski kod uyumluluğu için window.zohoCustomerData'ya da set et
+                    window.zohoCustomerData = {
+                        id: leadId,
+                        name: leadName,
+                        Full_Name: lead.Full_Name || fullName,
+                        Last_Name: lead.Last_Name,
+                        First_Name: lead.First_Name,
+                        phone: leadPhone,
+                        email: leadEmail,
+                        Company: lead.Company,
+                        Lead_Source: lead.Lead_Source,
+                        Lead_Status: lead.Lead_Status,
+                        ...lead
+                    };
+                    
+                    console.log('✅✅✅ window.zohoCustomerData SET EDİLDİ:', window.zohoCustomerData);
+                    
+                    // ✅ Event gönder → app.js filtresini tetikler
+                    window.dispatchEvent(
+                        new CustomEvent('zohoLeadDataLoaded', { detail: window.zohoCustomerData })
+                    );
+                    document.dispatchEvent(
+                        new CustomEvent('zohoLeadDataLoaded', { detail: window.zohoCustomerData })
+                    );
+                    
+                    // ✅ Konuşmaları yeniden yükle (eğer app.js yüklendiyse)
+                    if (typeof loadConversations === 'function') {
+                        console.log('🔄 Konuşmalar yeniden yükleniyor (Zoho SDK lead bilgisi ile)...');
+                        loadConversations(false);
+                    }
+                } catch (e) {
+                    console.error('❌ Zoho SDK lead çekme hatası:', e);
+                    console.error('   Hata detayı:', e.message);
+                    console.error('   Stack:', e.stack);
+                    
+                    // Fallback: URL'den leadId çekmeyi dene
+                    console.log('⚠️ Zoho SDK hatası, fallback yöntem deneniyor...');
+                    tryFallbackLeadId();
+                }
+            });
+            
+            // ✅ KRİTİK: SDK'yı init et
+            ZOHO.embeddedApp.init();
+            console.log('✅✅✅ Zoho SDK init edildi - PageLoad event\'i dinleniyor...');
+        }
+        
+        // Fallback: URL'den leadId çekme (Zoho SDK çalışmazsa)
+        async function tryFallbackLeadId() {
+            try {
+                // ✅ BASİT: Eğer zaten leadId varsa, tekrar çekme
+                if (leadId && leadId !== '$' && !leadId.includes('$') && !leadId.includes('{')) {
+                    console.log('✅✅✅ leadId zaten var, fallback atlanıyor:', leadId);
+                    return;
+                }
+                
+                console.log('🔄🔄🔄 FALLBACK BAŞLIYOR - URL\'den leadId çekiliyor...');
+                const params = new URLSearchParams(window.location.search);
+                var foundLeadId = params.get('leadId');
+                
+                // Placeholder kontrolü
+                if (foundLeadId && (foundLeadId.includes('$') || foundLeadId.includes('{') || foundLeadId.includes('CRM_RECORD_ID'))) {
+                    console.log('⚠️ Placeholder tespit edildi, parent URL\'den çıkarılıyor...');
+                    foundLeadId = null;
+                }
+                
+                if (!foundLeadId) {
+                    // Parent URL'den çıkar - ÇOKLU YÖNTEM
+                    var parentUrl = null;
+                    
+                    // YÖNTEM 1: window.parent.location.href
+                    try {
+                        if (window.parent && window.parent !== window) {
+                            parentUrl = window.parent.location.href;
+                            console.log('🔍 YÖNTEM 1 - Parent URL:', parentUrl);
+                        }
+                    } catch (e) {
+                        console.log('⚠️ YÖNTEM 1 - Cross-origin hatası:', e.message);
+                    }
+                    
+                    // YÖNTEM 2: window.top.location.href
+                    if (!parentUrl) {
+                        try {
+                            if (window.top && window.top !== window) {
+                                parentUrl = window.top.location.href;
+                                console.log('🔍 YÖNTEM 2 - Top URL:', parentUrl);
+                            }
+                        } catch (e) {
+                            console.log('⚠️ YÖNTEM 2 - Cross-origin hatası:', e.message);
+                        }
+                    }
+                    
+                    // YÖNTEM 3: document.referrer
+                    if (!parentUrl) {
+                        parentUrl = document.referrer;
+                        console.log('🔍 YÖNTEM 3 - Referrer:', parentUrl);
+                    }
+                    
+                    // YÖNTEM 4: window.name (Zoho bazen buraya bilgi koyar)
+                    if (!foundLeadId && window.name && window.name.length > 10) {
+                        try {
+                            var nameMatch = window.name.match(/(\d{10,})/);
+                            if (nameMatch && nameMatch[1]) {
+                                foundLeadId = nameMatch[1];
+                                console.log('✅✅✅ YÖNTEM 4 - window.name\'den leadId çıkarıldı:', foundLeadId);
+                            }
+                        } catch (e) {
+                            console.log('⚠️ YÖNTEM 4 - window.name hatası:', e.message);
+                        }
+                    }
+                    
+                    if (parentUrl && !foundLeadId) {
+                        // Pattern 1: /tab/Leads/3519633000086711022
+                        var leadIdMatch = parentUrl.match(/\/tab\/Leads\/(\d+)(?:\?|$)/);
+                        if (leadIdMatch && leadIdMatch[1]) {
+                            foundLeadId = leadIdMatch[1];
+                            console.log('✅✅✅ Parent URL\'den leadId çıkarıldı (pattern):', foundLeadId);
+                        } else {
+                            // Pattern 2: Son / dan sonraki sayı
+                            var lastSlashIndex = parentUrl.lastIndexOf('/');
+                            if (lastSlashIndex !== -1) {
+                                var afterLastSlash = parentUrl.substring(lastSlashIndex + 1).split('?')[0];
+                                if (/^\d{10,}$/.test(afterLastSlash)) {
+                                    foundLeadId = afterLastSlash;
+                                    console.log('✅✅✅ Parent URL\'den leadId çıkarıldı (son / dan sonraki sayı):', foundLeadId);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // ✅ BASİT ÇÖZÜM: LeadId yoksa bile backend'e istek gönder, o referrer'dan çıkaracak
+                const API_BASE_URL = `${window.location.origin}/api`;
+                
+                try {
+                    // ✅ KESİN ÇALIŞAN YÖNTEM: Backend referrer header'ından lead ID'yi çıkaracak
+                    const res = await fetch(API_BASE_URL + '/zoho/lead-info' + (foundLeadId ? '?id=' + encodeURIComponent(foundLeadId) : ''));
+                    const lead = await res.json();
+                    
+                    // ✅ BASİT: Backend'den gelen lead ID'yi global değişkene ata
+                    if (lead.id && !foundLeadId) {
+                        foundLeadId = lead.id;
+                        console.log('✅✅✅ Backend\'den leadId alındı:', foundLeadId);
+                    }
+                    
+                    if (foundLeadId) {
+                        // ✅ BASİT: Global window değişkenlerine ata (app.js'den erişilebilir)
+                        window.leadId = foundLeadId;
+                        window.leadName = lead.Full_Name || lead.Last_Name || lead.name || 'Bilinmeyen';  // ✅ BASİT: Lead name değişkene atandı!
+                        window.leadPhone = lead.phone || lead.Phone || '';
+                        window.leadEmail = lead.email || lead.Email || '';
+                        
+                        // ✅ Kısa isimler için de güncelle
+                        leadId = window.leadId;
+                        leadName = window.leadName;
+                        leadPhone = window.leadPhone;
+                        leadEmail = window.leadEmail;
+                        
+                        console.log('✅✅✅✅✅ BASİT ÇÖZÜM: Değişkenlere atandı!');
+                        console.log('   window.leadId:', window.leadId);
+                        console.log('   window.leadName (değişken):', window.leadName);  // ✅ Lead name değişkende!
+                        console.log('   window.leadPhone:', window.leadPhone);
+                        console.log('   window.leadEmail:', window.leadEmail);
+                        
+                        // ✅ Eski kod uyumluluğu için window.zohoCustomerData'ya da set et
+                        window.zohoCustomerData = {
+                            id: leadId,
+                            name: leadName,
+                            Full_Name: lead.Full_Name || lead.Last_Name,
+                            Last_Name: lead.Last_Name,
+                            phone: leadPhone,
+                            email: leadEmail,
+                            ...lead
+                        };
+                        
+                        window.dispatchEvent(
+                            new CustomEvent('zohoLeadDataLoaded', { detail: window.zohoCustomerData })
+                        );
+                        document.dispatchEvent(
+                            new CustomEvent('zohoLeadDataLoaded', { detail: window.zohoCustomerData })
+                        );
+                        
+                        if (typeof loadConversations === 'function') {
+                            console.log('🔄 FALLBACK: Konuşmalar yeniden yükleniyor...');
+                            loadConversations(false);
+                        }
+                    } catch (fetchError) {
+                        console.error('❌ Fallback fetch hatası:', fetchError);
+                        // Hata durumunda bile leadId'yi set et
+                        window.zohoCustomerData = {
+                            id: leadId,
+                            name: 'Lead ' + leadId,
+                            Full_Name: 'Lead ' + leadId,
+                            Last_Name: 'Lead ' + leadId,
+                            phone: '',
+                            email: ''
+                        };
+                        console.log('⚠️ Fallback: window.zohoCustomerData set edildi (hata nedeniyle):', window.zohoCustomerData);
+                        window.dispatchEvent(
+                            new CustomEvent('zohoLeadDataLoaded', { detail: window.zohoCustomerData })
+                        );
+                        document.dispatchEvent(
+                            new CustomEvent('zohoLeadDataLoaded', { detail: window.zohoCustomerData })
+                        );
+                    }
+                } else {
+                    console.error('❌❌❌ FALLBACK: LeadId bulunamadı!');
+                    console.log('   Widget URL:', window.location.href);
+                    console.log('   Parent window:', window.parent && window.parent !== window ? 'Var' : 'Yok');
+                }
+            } catch (error) {
+                console.error('❌ Fallback hatası:', error);
+            }
+        }
+        
+        // ✅ KRİTİK: Zoho SDK'nın yüklendiğini bekle, sonra başlat
+        let sdkCheckCount = 0;
+        const MAX_SDK_CHECKS = 30; // 3 saniye (30 * 100ms)
+        
+        function waitForZohoSDK() {
+            sdkCheckCount++;
+            if (typeof ZOHO !== 'undefined' && ZOHO.embeddedApp) {
+                console.log('✅✅✅ ZOHO SDK hazır, başlatılıyor...');
+                initZohoLead();
+            } else if (sdkCheckCount < MAX_SDK_CHECKS) {
+                console.log(`⏳ ZOHO SDK bekleniyor... (${sdkCheckCount}/${MAX_SDK_CHECKS})`);
+                setTimeout(waitForZohoSDK, 100);
+            } else {
+                console.error('❌❌❌ ZOHO SDK yüklenemedi, fallback kullanılacak!');
+                tryFallbackLeadId();
+            }
+        }
+        
+        // ✅ KRİTİK: HEMEN fallback'i de başlat (paralel çalışsın)
+        console.log('🚀🚀🚀 HEMEN FALLBACK BAŞLATILIYOR (paralel çalışacak)...');
+        tryFallbackLeadId();
+        
+        // ✅ EK KESİN ÇÖZÜM: Parent window'dan mesaj iste
+        try {
+            if (window.parent && window.parent !== window) {
+                // Parent'a lead ID isteği gönder
+                window.parent.postMessage({ type: 'GET_LEAD_ID', source: 'sleekflow-widget' }, '*');
+                console.log('📤 Parent window\'a lead ID isteği gönderildi');
+            }
+        } catch (e) {
+            console.log('⚠️ Parent postMessage hatası:', e.message);
+        }
+        
+        // Sayfa yüklendiğinde Zoho SDK'yı başlat (SDK yüklenmesini bekle)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                // SDK script'i yüklenmesini bekle
+                setTimeout(waitForZohoSDK, 500);
+            });
+        } else {
+            // SDK script'i yüklenmesini bekle
+            setTimeout(waitForZohoSDK, 500);
+        }
+        
+        // ✅ EK GÜVENLİK: 1, 2, 3 saniye sonra fallback'i tekrar dene
+        [1000, 2000, 3000].forEach(delay => {
+            setTimeout(() => {
+                if (!window.zohoCustomerData || !window.zohoCustomerData.id || 
+                    window.zohoCustomerData.id === '$' || 
+                    window.zohoCustomerData.id.includes('$') ||
+                    window.zohoCustomerData.id.includes('{')) {
+                    console.log(`⚠️⚠️⚠️ ${delay/1000} saniye sonra hala zohoCustomerData yok/geçersiz, fallback tekrar deneniyor...`);
+                    tryFallbackLeadId();
+                }
+            }, delay);
+        });
+    </script>
+
+    
+    <!-- Ana uygulama JavaScript'i -->
+    <!-- ✅ ACİL ÇÖZÜM: Buton event listener'ı HEMEN KUR (script yüklenmeden önce) -->
+    <script>
+        // ✅ BUTON EVENT LISTENER'INI HEMEN KUR
+        function setupConnectButton() {
+            const btn = document.getElementById('connectSleekflow');
+            if (btn) {
+                console.log('✅ connectSleekflow butonu bulundu, event listener kuruluyor...');
+                btn.onclick = function() {
+                    console.log('🔵🔵🔵 BUTON TIKLANDI!');
+                    if (typeof window.connectSleekflow === 'function') {
+                        console.log('✅ window.connectSleekflow çağrılıyor...');
+                        window.connectSleekflow();
+                    } else {
+                        console.error('❌ window.connectSleekflow TANIMLI DEĞİL! Script yükleniyor mu?');
+                        alert('Lütfen sayfanın tamamen yüklenmesini bekleyin (2-3 saniye) ve tekrar deneyin.');
+                    }
+                };
+            } else {
+                console.error('❌ connectSleekflow butonu bulunamadı!');
+            }
+        }
+        
+        // ✅ HEMEN DENE
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupConnectButton);
+        } else {
+            setupConnectButton();
+        }
+        
+        // ✅ EK GÜVENLİK: 500ms sonra tekrar dene
+        setTimeout(setupConnectButton, 500);
+        setTimeout(setupConnectButton, 1000);
+        setTimeout(setupConnectButton, 2000);
+    </script>
+    
+     <!-- Frontend Utilities (matchNames, normalizeName vb.) -->
+     <script src="utils/frontendUtils.js"></script>
+     
+     <script src="app.js?v=71"></script>
+     <script>
+         // ✅ Script yüklendikten sonra buton event listener'ını tekrar kur
+         window.addEventListener('load', function() {
+             setTimeout(function() {
+                 setupConnectButton();
+                 if (typeof window.connectSleekflow === 'function') {
+                     console.log('✅✅✅ window.connectSleekflow YÜKLENDİ VE HAZIR!');
+                 } else {
+                     console.error('❌❌❌ window.connectSleekflow HALA TANIMLI DEĞİL!');
+                 }
+             }, 1000);
+         });
+     </script>
+    <script>
+        // ✅ SIDEBAR KONTROL FONKSİYONU - Sadece bağlantı yoksa açık tut
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return false;
+            
+            sidebar.classList.toggle('open');
+            sidebar.classList.toggle('closed');
+            document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+            return false;
+        };
+
+        // Widget için arama fonksiyonu (case-insensitive - Türkçe karakter desteği ile)
+        function setupWidgetSearch() {
+            const searchInput = document.getElementById('searchConversations');
+            if (!searchInput) return;
+
+            searchInput.addEventListener('input', (e) => {
+                // Türkçe karakterleri normalize et ve küçük harfe çevir
+                const normalizeText = (text) => {
+                    return text
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '') // Diyakritik işaretleri kaldır
+                        .replace(/ı/g, 'i')
+                        .replace(/ğ/g, 'g')
+                        .replace(/ü/g, 'u')
+                        .replace(/ş/g, 's')
+                        .replace(/ö/g, 'o')
+                        .replace(/ç/g, 'c');
+                };
+                
+                const search = normalizeText(e.target.value.trim());
+                const items = document.querySelectorAll('.conversation-item');
+                items.forEach(item => {
+                    const nameEl = item.querySelector('.conversation-name');
+                    const previewEl = item.querySelector('.conversation-preview');
+                    
+                    if (!nameEl) return;
+                    
+                    const name = normalizeText(nameEl.textContent.trim());
+                    const preview = previewEl ? normalizeText(previewEl.textContent.trim()) : '';
+                    
+                    // İsim veya mesaj önizlemesinde ara (case-insensitive)
+                    const matches = search === '' || name.includes(search) || preview.includes(search);
+                    item.style.display = matches ? 'flex' : 'none';
+                });
+            });
+        }
+
+        // Sidebar ve arama için event listener'lar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 Widget DOM yüklendi, sidebar event listener\'lar ekleniyor...');
+            
+            // Sidebar her zaman açık başla
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                sidebar.classList.add('open');
+                document.body.style.overflow = 'hidden';
+            }
+            
+            // ✅ SIDEBAR'ı KORU - SADECE BAĞLANTI YOKSA AÇIK TUT (setInterval kaldırıldı - connectSleekflow içinde kapatılıyor)
+            
+            // Buton event listener'ları
+            document.getElementById('openSidebar')?.addEventListener('click', window.toggleSidebar);
+            document.getElementById('toggleSidebar')?.addEventListener('click', window.toggleSidebar);
+
+            // Arama fonksiyonunu kur
+            setupWidgetSearch();
+        });
+    </script>
+</body>
+</html>
+

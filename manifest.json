@@ -1,0 +1,22 @@
+{
+  "name": "Sleekflow Inbox Widget",
+  "version": "1.0.0",
+  "description": "Sleekflow mesajlarını Zoho Lead'e göre filtreleyen widget",
+  "location": {
+    "crm.tab": {
+      "url": "zoho-widget.html",
+      "fullscreen": true
+    }
+  },
+  "permissions": [
+    "crm.objects.leads.READ",
+    "crm.objects.contacts.READ"
+  ]
+}
+
+
+
+
+
+
+

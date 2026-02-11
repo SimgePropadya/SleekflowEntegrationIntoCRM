@@ -1,0 +1,83 @@
+/**
+ * GET /api/sleekflow/cloudapi-templates
+ * WhatsApp Cloud API template'lerini çek (channelNumber gerekli)
+ */
+router.get('/cloudapi-templates', asyncHandler(async (req, res, next) => {
+    const { apiKey, baseUrl, channelNumber } = req.query;
+
+    // API key ve channelNumber kontrolü
+    if (!apiKey && !sleekflowApiKey) {
+        return res.status(401).json({
+            error: 'Sleekflow bağlantısı yok. Lütfen API anahtarınızı girin ve bağlanın.',
+            templates: []
+        });
+    }
+    if (!channelNumber || !channelNumber.toString().trim()) {
+        return res.status(400).json({
+            error: 'channelNumber gerekli',
+            templates: []
+        });
+    }
+
+    const apiKeyToUse = apiKey || sleekflowApiKey;
+    if (!apiKeyToUse || typeof apiKeyToUse !== 'string' || apiKeyToUse.trim().length < 10) {
+        return res.status(400).json({
+            error: 'Geçersiz API anahtarı',
+            templates: []
+        });
+    }
+
+    let finalBaseUrl = 'https://api.sleekflow.io';
+    if (baseUrl && typeof baseUrl === 'string' && baseUrl.trim() && baseUrl.trim() !== 'undefined') {
+        finalBaseUrl = baseUrl.trim();
+    } else if (sleekflowBaseUrl && typeof sleekflowBaseUrl === 'string' && sleekflowBaseUrl.trim() && sleekflowBaseUrl.trim() !== 'undefined') {
+        finalBaseUrl = sleekflowBaseUrl.trim();
+    }
+
+    try {
+        sleekflowService.setCredentials(apiKeyToUse, finalBaseUrl);
+    } catch (credError) {
+        logger.error('Cloud API templates credentials hatası', { error: credError.message });
+        return res.status(400).json({ error: 'Geçersiz API anahtarı veya base URL', templates: [] });
+    }
+
+    try {
+        const result = await sleekflowService.call('get', `/api/cloudapi/template?channelNumber=${encodeURIComponent(channelNumber)}`);
+        const rawTemplates = result?.whatsappTemplates || result?.data || [];
+
+        const templates = (rawTemplates || []).map(t => {
+            // Body component'ı içerik olarak kullan
+            let bodyText = '';
+            if (Array.isArray(t.components)) {
+                const body = t.components.find(c => (c.type || '').toUpperCase() === 'BODY' && c.text);
+                if (body && body.text) {
+                    bodyText = body.text;
+                }
+            }
+            return {
+                id: t.id?.toString() || t.name || '',
+                name: t.name || 'Unnamed Template',
+                content: bodyText || '',
+                category: t.category || '',
+                language: t.language || '',
+                status: t.status || '',
+                type: 'cloudapi',
+                order: 0
+            };
+        });
+
+        return res.json({ success: true, templates, total: templates.length });
+    } catch (err) {
+        logger.error('Cloud API templates çekme hatası', {
+            error: err.message,
+            status: err.response?.status,
+            data: err.response?.data
+        });
+        const statusCode = err.response?.status || 500;
+        const msg = err.response?.data?.error || err.message || 'Cloud API templates çekilemedi';
+        return res.status(statusCode).json({ error: msg, templates: [] });
+    }
+}));
+
+
+

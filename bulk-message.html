@@ -1,0 +1,2836 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SleekFlow Toplu Mesaj Gönder</title>
+    <!-- Zoho CRM Embedded App SDK (Widget için) -->
+    <script src="https://live.zwidgets.com/js-sdk/1.0/ZohoEmbededAppSDK.min.js"></script>
+    <!-- Zoho CRM JavaScript API (List View için) -->
+    <script src="https://js.zohostatic.com/crm/javascript/crmapi.min.js"></script>
+    <!-- Zoho CRM JS SDK (CORS için - Client-based OAuth Application) -->
+    <script src="https://static.zohocdn.com/zohocrm/v2.0/sdk/3.0.0/sdk.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .content {
+            padding: 24px;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 2px;
+        }
+
+        .recipients-summary {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .phone-type-filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .recipients-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+
+        .recipient-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #f0f7ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+        }
+
+        .recipient-info {
+            flex: 1;
+        }
+
+        .recipient-name {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .recipient-phone {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .recipient-warning {
+            font-size: 12px;
+            color: #ff6b6b;
+            margin-top: 4px;
+        }
+
+        .remove-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .remove-btn:hover {
+            background: #ff5252;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            background: #ffb300;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .message-section {
+            margin-top: 24px;
+        }
+
+        .template-selectors {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .template-select {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .message-input {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #eee;
+        }
+
+        .send-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📤 SleekFlow Toplu Mesaj Gönder</h1>
+            <button class="close-btn" onclick="window.close()">×</button>
+        </div>
+
+        <div class="content">
+            <!-- Error/Success Messages -->
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+
+            <!-- Recipients Section (Sadece seçili lead'lerin numaraları) -->
+            <div class="section">
+                <div class="section-title">📱 Alıcılar</div>
+                
+                <div class="recipients-summary" id="recipientsSummary">
+                    <strong>Seçili <span id="selectedLeadCount">0</span> lead</strong> | 
+                    <strong>Toplam <span id="recipientCount">0</span> numara</strong>
+                </div>
+
+                <div class="recipients-list" id="recipientsList" style="margin-top: 16px;">
+                    <!-- Seçili lead'lerin telefon numaraları buraya eklenecek -->
+                </div>
+
+                <div class="action-buttons" style="margin-top: 16px; display: flex; gap: 8px;">
+                    <button class="btn btn-warning" onclick="removeDuplicates()">🔄 Duplicate Numaraları Kaldır</button>
+                    <button class="btn btn-success" onclick="addRecipients()">+ Alıcı Ekle</button>
+                </div>
+            </div>
+
+            <!-- Sender Selection Section -->
+            <div class="section">
+                <div class="section-title">📞 Gönderen Numarası</div>
+                <select id="senderSelect" class="template-select" style="margin-bottom: 0;">
+                    <option value="908505327532">VIP Proje Pazarlama-+908505327532</option>
+                    <option value="905421363421">Hamzah Coexistence-+905421363421</option>
+                </select>
+                <p style="font-size: 12px; color: #666; margin-top: 8px;">
+                    Mesajların hangi numaradan gönderileceğini seçin
+                </p>
+            </div>
+
+            <!-- Message Section -->
+            <div class="section message-section">
+                <div class="section-title">💬 Mesaj</div>
+
+                <div style="margin-bottom: 12px;">
+                    <button class="btn btn-primary" id="openTemplates" style="padding: 10px 20px; font-size: 14px;">
+                        📋 Templates
+                    </button>
+                </div>
+
+                <textarea 
+                    class="message-input" 
+                    id="messageInput" 
+                    placeholder="Mesajınızı yazın... (Template seçerseniz otomatik doldurulur)"
+                ></textarea>
+            </div>
+
+            <!-- Send Section -->
+            <div class="send-section">
+                <button class="send-btn" id="sendBtn" onclick="sendBulkMessage()">
+                    ► Toplu Mesaj Gönder
+                </button>
+                <div class="loading" id="loading">
+                    Mesajlar gönderiliyor... Lütfen bekleyin.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ✅ Base URL'i dinamik olarak bul (Render.com veya localhost)
+        function getBaseUrl() {
+            // Eğer window.location.origin varsa onu kullan
+            if (typeof window !== 'undefined' && window.location && window.location.origin) {
+                return window.location.origin;
+            }
+            // Fallback: Environment variable veya default
+            return process.env.RENDER_EXTERNAL_URL || process.env.API_BASE_URL || 'http://localhost:3000';
+        }
+        
+        // ✅ Base URL'i sayfa yüklendiğinde göster (kullanıcı için)
+        const BASE_URL = getBaseUrl();
+        console.log('📍 Base URL:', BASE_URL);
+        
+        // Global state
+        let recipients = [];
+        let allRecipients = [];
+        let currentFilter = 'all';
+        let pageLoadSelectedIds = [];
+        let pageLoadListenerRegistered = false;
+
+        function extractIdsFromPageLoad(data) {
+            const candidates = [];
+            if (!data) return [];
+            if (data.EntityId) candidates.push(data.EntityId);
+            if (data.entityId) candidates.push(data.entityId);
+            if (data.recordId) candidates.push(data.recordId);
+            if (data.RecordId) candidates.push(data.RecordId);
+            if (data.EntityIds) candidates.push(...(Array.isArray(data.EntityIds) ? data.EntityIds : [data.EntityIds]));
+            if (data.entityIds) candidates.push(...(Array.isArray(data.entityIds) ? data.entityIds : [data.entityIds]));
+            if (data.RecordIds) candidates.push(...(Array.isArray(data.RecordIds) ? data.RecordIds : [data.RecordIds]));
+            if (data.recordIds) candidates.push(...(Array.isArray(data.recordIds) ? data.recordIds : [data.recordIds]));
+            if (data.SelectedRecords) candidates.push(...(Array.isArray(data.SelectedRecords) ? data.SelectedRecords : [data.SelectedRecords]));
+            if (data.selectedRecords) candidates.push(...(Array.isArray(data.selectedRecords) ? data.selectedRecords : [data.selectedRecords]));
+
+            return candidates
+                .map(rec => rec?.id || rec?.Id || rec?.ID || rec?.recordId || rec?.record_id || rec)
+                .map(id => (id ? id.toString() : null))
+                .filter(id => id && id.length >= 10);
+        }
+
+        // ✅ PageLoad'tan direkt telefon numaralarını çıkar
+        function extractLeadsWithPhonesFromPageLoad(data) {
+            if (!data) return [];
+            
+            const leads = [];
+            
+            // ✅ SelectedRecords'dan direkt telefon numaralarını al
+            const selectedRecords = data.SelectedRecords || data.selectedRecords || data.Records || data.records;
+            if (selectedRecords && Array.isArray(selectedRecords)) {
+                selectedRecords.forEach(record => {
+                    const phone = record.Phone || record.phone || '';
+                    const mobile = record.Mobile || record.mobile || '';
+                    const secondaryPhone = record.Secondary_Phone || record.SecondaryPhone || record.secondary_phone || '';
+                    
+                    if (phone || mobile || secondaryPhone) {
+                        const firstName = record.First_Name || record.FirstName || record.first_name || '';
+                        const lastName = record.Last_Name || record.LastName || record.last_name || '';
+                        const fullName = record.Full_Name || record.FullName || record.full_name || 
+                                        (firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'İsimsiz');
+                        
+                        const leadId = record.id || record.Id || record.ID || record.recordId || record.record_id || '';
+                        
+                        leads.push({
+                            id: leadId,
+                            name: fullName,
+                            Phone: phone,
+                            Mobile: mobile,
+                            Secondary_Phone: secondaryPhone,
+                            First_Name: firstName,
+                            Last_Name: lastName
+                        });
+                    }
+                });
+            }
+            
+            return leads;
+        }
+
+        function setupZohoPageLoadListener() {
+            if (pageLoadListenerRegistered) return;
+            if (typeof ZOHO === 'undefined' || !ZOHO.embeddedApp || typeof ZOHO.embeddedApp.on !== 'function') return;
+            pageLoadListenerRegistered = true;
+            ZOHO.embeddedApp.on("PageLoad", async function(data) {
+                console.log('✅ ZOHO PageLoad data:', data);
+                
+                // ✅ Önce direkt telefon numaralarını dene
+                const leadsWithPhones = extractLeadsWithPhonesFromPageLoad(data);
+                if (leadsWithPhones.length > 0) {
+                    console.log('✅✅✅✅✅ ZOHO PageLoad seçili lead telefon numaraları:', leadsWithPhones);
+                    
+                    leadsWithPhones.forEach(lead => {
+                        if (lead.id) {
+                            selectedLeadIds.add(lead.id);
+                        }
+                    });
+                    
+                    buildRecipients(leadsWithPhones);
+                    renderLeadsList();
+                    renderRecipients();
+                    return;
+                }
+                
+                // ✅ Fallback: ID'leri al ve backend API'den telefon numaralarını çek
+                const ids = extractIdsFromPageLoad(data);
+                if (ids && ids.length > 0) {
+                    console.log('✅ ZOHO PageLoad seçili lead ID\'leri:', ids);
+                    pageLoadSelectedIds = ids;
+                    
+                    // ✅ Backend API'den telefon numaralarını çek
+                    try {
+                        const leadsWithPhones = await fetchSelectedLeadsDetails(ids);
+                        if (leadsWithPhones && leadsWithPhones.length > 0) {
+                            console.log('✅✅✅✅✅ PageLoad ID\'lerinden telefon numaraları çekildi:', leadsWithPhones.length);
+                            
+                            leadsWithPhones.forEach(lead => {
+                                const leadId = getLeadId(lead);
+                                if (leadId) {
+                                    selectedLeadIds.add(leadId);
+                                }
+                            });
+                            
+                            buildRecipients(leadsWithPhones);
+                            renderLeadsList();
+                            renderRecipients();
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ PageLoad ID\'lerinden telefon numaraları çekilemedi:', error);
+                    }
+                }
+            });
+        }
+
+        // URL'den lead ID'lerini al
+        function getLeadIdsFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            // Zoho CRM bazen farklı parametre isimleri kullanır
+            const leadIds = urlParams.get('leadIds') || urlParams.get('recordIds') || urlParams.get('ids') || urlParams.get('recordId') || '';
+            
+            console.log('🔍 URL parametreleri:', {
+                fullUrl: window.location.href,
+                search: window.location.search,
+                leadIds: urlParams.get('leadIds'),
+                recordIds: urlParams.get('recordIds'),
+                ids: urlParams.get('ids'),
+                recordId: urlParams.get('recordId'),
+                allParams: Object.fromEntries(urlParams.entries())
+            });
+            
+            if (leadIds) {
+                // Virgülle ayrılmış ID'leri parse et
+                const ids = leadIds.split(',').map(id => id.trim()).filter(id => id && id.length >= 10);
+                console.log('✅ Lead ID\'leri bulundu:', {
+                    raw: leadIds,
+                    parsed: ids,
+                    count: ids.length
+                });
+                
+                if (ids.length > 0) {
+                    return ids;
+                } else {
+                    console.warn('⚠️ Lead ID\'leri parse edildi ama geçerli ID bulunamadı (uzunluk < 10)');
+                }
+            }
+            
+            console.warn('⚠️ Lead ID\'leri URL\'de bulunamadı');
+            return [];
+        }
+
+        // Lead bilgilerini Zoho API'den çek
+        async function fetchLeadDetails(leadIds) {
+            try {
+                console.log('📞 Lead bilgileri çekiliyor...', { 
+                    leadIds, 
+                    count: leadIds.length,
+                    leadIdsString: leadIds.join(',')
+                });
+                
+                const url = `/api/zoho/leads?leadIds=${encodeURIComponent(leadIds.join(','))}`;
+                console.log('📡 API URL:', url);
+                
+                const response = await fetch(url);
+                console.log('📥 API Response:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('❌ Lead bilgileri çekilemedi (HTTP error):', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        errorData: errorData
+                    });
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Lead bilgileri çekildi:', { 
+                    success: data.success, 
+                    count: data.leads?.length || 0,
+                    total: data.total,
+                    leads: data.leads,
+                    fullResponse: data
+                });
+                
+                if (!data.success) {
+                    console.warn('⚠️ API success=false döndü:', data);
+                }
+                
+                return data.leads || [];
+            } catch (error) {
+                console.error('❌ Lead bilgileri çekilemedi (catch):', {
+                    error: error,
+                    message: error.message,
+                    stack: error.stack
+                });
+                showError('Lead bilgileri çekilemedi: ' + error.message);
+                return [];
+            }
+        }
+
+        // Recipients listesini oluştur
+        function buildRecipients(leads) {
+            allRecipients = [];
+            
+            console.log('📋 Recipients oluşturuluyor, lead sayısı:', leads.length);
+            console.log('📋 İlk lead örneği:', leads[0]);
+            
+            leads.forEach((lead, index) => {
+                // ✅ İsim alanlarını kontrol et (büyük/küçük harf duyarlı olabilir)
+                const name = (lead.First_Name && lead.Last_Name) 
+                    ? `${lead.First_Name} ${lead.Last_Name}` 
+                    : (lead.First_Name || lead.Last_Name || lead.Full_Name || 
+                       lead.first_name || lead.last_name || lead.full_name || 'İsimsiz');
+                
+                // ✅ Telefon numaralarını kontrol et (büyük/küçük harf duyarlı olabilir)
+                const phone = lead.Phone || lead.phone;
+                const mobile = lead.Mobile || lead.mobile;
+                const secondaryPhone = lead.Secondary_Phone || lead.secondary_phone || lead.SecondaryPhone || lead.secondary_phone;
+                
+                console.log(`📞 Lead ${index + 1} (${name}):`, {
+                    id: lead.id,
+                    phone: phone || 'YOK',
+                    mobile: mobile || 'YOK',
+                    secondaryPhone: secondaryPhone || 'YOK',
+                    allFields: Object.keys(lead)
+                });
+                
+                // Phone
+                if (phone) {
+                    allRecipients.push({
+                        name,
+                        phone: phone,
+                        type: 'phone',
+                        leadId: lead.id
+                    });
+                }
+                
+                // Mobile
+                if (mobile) {
+                    allRecipients.push({
+                        name,
+                        phone: mobile,
+                        type: 'mobile',
+                        leadId: lead.id
+                    });
+                }
+                
+                // Secondary Phone
+                if (secondaryPhone) {
+                    allRecipients.push({
+                        name,
+                        phone: secondaryPhone,
+                        type: 'secondary',
+                        leadId: lead.id
+                    });
+                }
+                
+                // ✅ Eğer hiç telefon numarası yoksa uyar
+                if (!phone && !mobile && !secondaryPhone) {
+                    console.warn(`⚠️ Lead ${index + 1} (${name}) için telefon numarası bulunamadı!`, {
+                        leadId: lead.id,
+                        availableFields: Object.keys(lead)
+                    });
+                }
+            });
+            
+            console.log('✅ Toplam recipients oluşturuldu:', allRecipients.length);
+            
+            // Duplicate kontrolü
+            const phoneMap = {};
+            recipients = allRecipients.filter(recipient => {
+                const cleanPhone = recipient.phone.replace(/\D/g, '');
+                if (phoneMap[cleanPhone]) {
+                    phoneMap[cleanPhone].duplicate = true;
+                    recipient.duplicate = true;
+                    return true;
+                }
+                phoneMap[cleanPhone] = recipient;
+                return true;
+            });
+            
+            console.log('✅ Recipients render ediliyor:', recipients.length);
+            renderRecipients();
+        }
+
+        // Recipients'ı render et
+        function renderRecipients() {
+            const filtered = currentFilter === 'all' 
+                ? recipients 
+                : recipients.filter(r => r.type === currentFilter);
+            
+            document.getElementById('recipientCount').textContent = filtered.length;
+            
+            const list = document.getElementById('recipientsList');
+            list.innerHTML = '';
+            
+            filtered.forEach((recipient, index) => {
+                const item = document.createElement('div');
+                item.className = 'recipient-item';
+                
+                const cleanPhone = recipient.phone.replace(/\D/g, '');
+                
+                item.innerHTML = `
+                    <div class="recipient-info">
+                        <div class="recipient-name">${recipient.name}</div>
+                        <div class="recipient-phone">${recipient.phone} (${recipient.type})</div>
+                        ${recipient.duplicate ? '<div class="recipient-warning">⚠️ Duplicate</div>' : ''}
+                    </div>
+                    <button class="remove-btn" onclick="removeRecipient(${index})">×</button>
+                `;
+                
+                list.appendChild(item);
+            });
+        }
+
+        // Recipient kaldır
+        function removeRecipient(index) {
+            const filtered = currentFilter === 'all' 
+                ? recipients 
+                : recipients.filter(r => r.type === currentFilter);
+            
+            const recipient = filtered[index];
+            recipients = recipients.filter(r => r !== recipient);
+            renderRecipients();
+        }
+
+        // Duplicate'leri kaldır
+        function removeDuplicates() {
+            const phoneMap = {};
+            recipients = recipients.filter(recipient => {
+                const cleanPhone = recipient.phone.replace(/\D/g, '');
+                if (phoneMap[cleanPhone]) {
+                    return false; // Duplicate, kaldır
+                }
+                phoneMap[cleanPhone] = recipient;
+                recipient.duplicate = false;
+                return true;
+            });
+            renderRecipients();
+        }
+
+        // ✅ Alıcı ekle - Lead seçim modal'ını aç
+        function addRecipients() {
+            // ✅ Lead seçim modal'ını göster
+            showLeadSelectionModal();
+        }
+        
+        // ✅ Lead seçim modal'ını göster
+        function showLeadSelectionModal() {
+            // ✅ Modal zaten varsa göster, yoksa oluştur
+            let modal = document.getElementById('leadSelectionModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'leadSelectionModal';
+                modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto;';
+                modal.innerHTML = `
+                    <div style="max-width: 800px; margin: 50px auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #333;">📋 Lead Seç</h2>
+                            <button onclick="closeLeadSelectionModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">&times;</button>
+                        </div>
+                        
+                        <div style="margin-bottom: 16px;">
+                            <input 
+                                type="text" 
+                                id="modalLeadSearch" 
+                                placeholder="🔍 Lead ara (isim, telefon, email...)" 
+                                style="width: 100%; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px;"
+                            >
+                        </div>
+                        
+                        <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                            <button onclick="selectAllLeadsInModal()" class="btn btn-primary" style="flex: 1; padding: 10px; font-size: 14px;">✅ Tümünü Seç</button>
+                            <button onclick="deselectAllLeadsInModal()" class="btn btn-secondary" style="flex: 1; padding: 10px; font-size: 14px;">❌ Seçimi Temizle</button>
+                        </div>
+                        
+                        <div id="modalLeadsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <div style="text-align: center; padding: 40px; color: #666;">Lead'ler yükleniyor...</div>
+                        </div>
+                        
+                        <div style="margin-top: 20px; display: flex; gap: 8px; justify-content: flex-end;">
+                            <button onclick="closeLeadSelectionModal()" class="btn btn-secondary" style="padding: 10px 20px; font-size: 14px;">İptal</button>
+                            <button onclick="confirmLeadSelection()" class="btn btn-success" style="padding: 10px 20px; font-size: 14px;">✅ Seçilenleri Ekle</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                // ✅ Arama input'una event listener ekle
+                const searchInput = document.getElementById('modalLeadSearch');
+                if (searchInput) {
+                    let searchTimeout;
+                    searchInput.addEventListener('input', function(e) {
+                        clearTimeout(searchTimeout);
+                        searchTimeout = setTimeout(() => {
+                            renderModalLeadsList();
+                        }, 300);
+                    });
+                }
+            }
+            
+            // ✅ Modal'ı göster ve lead'leri yükle
+            modal.style.display = 'block';
+            
+            // ✅ Lead'leri yükle (eğer yüklenmemişse)
+            if (allLeads.length === 0) {
+                loadAllLeads().then(() => {
+                    renderModalLeadsList();
+                });
+            } else {
+                renderModalLeadsList();
+            }
+        }
+        
+        // ✅ Modal lead listesini render et
+        function renderModalLeadsList() {
+            const modalLeadsList = document.getElementById('modalLeadsList');
+            if (!modalLeadsList) return;
+            
+            const searchTerm = (document.getElementById('modalLeadSearch')?.value || '').toLowerCase().trim();
+            
+            // ✅ Arama terimine göre filtrele
+            let filteredLeads = allLeads;
+            if (searchTerm) {
+                filteredLeads = allLeads.filter(lead => {
+                    const name = ((lead.First_Name || '') + ' ' + (lead.Last_Name || '')).trim() || lead.Full_Name || 'İsimsiz';
+                    const phone = (lead.Phone || lead.phone || '').toString();
+                    const mobile = (lead.Mobile || lead.mobile || '').toString();
+                    const email = (lead.Email || lead.email || '').toString();
+                    
+                    return name.toLowerCase().includes(searchTerm) || 
+                           phone.includes(searchTerm) || 
+                           mobile.includes(searchTerm) ||
+                           email.toLowerCase().includes(searchTerm);
+                });
+            }
+            
+            if (filteredLeads.length === 0) {
+                modalLeadsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Lead bulunamadı</div>';
+                return;
+            }
+            
+            modalLeadsList.innerHTML = filteredLeads.map(lead => {
+                const name = (lead.First_Name && lead.Last_Name) 
+                    ? `${lead.First_Name} ${lead.Last_Name}` 
+                    : (lead.First_Name || lead.Last_Name || lead.Full_Name || 'İsimsiz');
+                
+                const phone = lead.Phone || lead.phone || '';
+                const mobile = lead.Mobile || lead.mobile || '';
+                const secondaryPhone = lead.Secondary_Phone || lead.secondary_phone || lead.SecondaryPhone || '';
+                const hasPhone = phone || mobile || secondaryPhone;
+
+                const leadId = getLeadId(lead);
+                const isSelected = selectedLeadIds.has(leadId);
+                
+                return `
+                    <div class="lead-item" style="display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: white; border-radius: 6px; border: 1px solid ${isSelected ? '#667eea' : '#e0e0e0'}; ${isSelected ? 'background: #f0f4ff;' : ''}">
+                        <input 
+                            type="checkbox" 
+                            class="lead-checkbox" 
+                            data-lead-id="${leadId}"
+                            ${isSelected ? 'checked' : ''}
+                            onchange="toggleLeadSelectionInModal('${leadId}', this.checked)"
+                            style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;"
+                        >
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${name}</div>
+                            <div style="font-size: 12px; color: #666;">
+                                ${phone ? `📞 ${phone}` : ''} ${mobile ? `📱 ${mobile}` : ''} ${secondaryPhone ? `📞 ${secondaryPhone}` : ''}
+                                ${!hasPhone ? '<span style="color: #ef4444;">⚠️ Telefon yok</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // ✅ Modal'da lead seçimi toggle
+        window.toggleLeadSelectionInModal = function(leadId, isSelected) {
+            if (isSelected) {
+                selectedLeadIds.add(leadId);
+            } else {
+                selectedLeadIds.delete(leadId);
+            }
+            renderModalLeadsList(); // ✅ Checkbox durumunu güncelle
+        };
+        
+        // ✅ Modal'da tümünü seç
+        window.selectAllLeadsInModal = function() {
+            const searchTerm = (document.getElementById('modalLeadSearch')?.value || '').toLowerCase().trim();
+            let leadsToSelect = allLeads;
+            
+            if (searchTerm) {
+                leadsToSelect = allLeads.filter(lead => {
+                    const name = ((lead.First_Name || '') + ' ' + (lead.Last_Name || '')).trim() || lead.Full_Name || 'İsimsiz';
+                    const phone = (lead.Phone || lead.phone || '').toString();
+                    const mobile = (lead.Mobile || lead.mobile || '').toString();
+                    const email = (lead.Email || lead.email || '').toString();
+                    
+                    return name.toLowerCase().includes(searchTerm) || 
+                           phone.includes(searchTerm) || 
+                           mobile.includes(searchTerm) ||
+                           email.toLowerCase().includes(searchTerm);
+                });
+            }
+            
+            leadsToSelect.forEach(lead => {
+                const leadId = getLeadId(lead);
+                if (leadId) {
+                    selectedLeadIds.add(leadId);
+                }
+            });
+            renderModalLeadsList();
+        };
+        
+        // ✅ Modal'da seçimi temizle
+        window.deselectAllLeadsInModal = function() {
+            const searchTerm = (document.getElementById('modalLeadSearch')?.value || '').toLowerCase().trim();
+            let leadsToDeselect = allLeads;
+            
+            if (searchTerm) {
+                leadsToDeselect = allLeads.filter(lead => {
+                    const name = ((lead.First_Name || '') + ' ' + (lead.Last_Name || '')).trim() || lead.Full_Name || 'İsimsiz';
+                    const phone = (lead.Phone || lead.phone || '').toString();
+                    const mobile = (lead.Mobile || lead.mobile || '').toString();
+                    const email = (lead.Email || lead.email || '').toString();
+                    
+                    return name.toLowerCase().includes(searchTerm) || 
+                           phone.includes(searchTerm) || 
+                           mobile.includes(searchTerm) ||
+                           email.toLowerCase().includes(searchTerm);
+                });
+            }
+            
+            leadsToDeselect.forEach(lead => {
+                const leadId = getLeadId(lead);
+                if (leadId) {
+                    selectedLeadIds.delete(leadId);
+                }
+            });
+            renderModalLeadsList();
+        };
+        
+        // ✅ Modal'ı kapat
+        window.closeLeadSelectionModal = function() {
+            const modal = document.getElementById('leadSelectionModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        };
+        
+        // ✅ Seçilen lead'leri onayla ve recipients'a ekle
+        window.confirmLeadSelection = function() {
+            // ✅ Seçili lead'lerden recipients oluştur
+            updateRecipientsFromSelectedLeads();
+            
+            // ✅ Modal'ı kapat
+            closeLeadSelectionModal();
+            
+            // ✅ Başarı mesajı
+            console.log('✅ Seçilen lead\'ler recipients listesine eklendi:', selectedLeadIds.size);
+        };
+
+        // Filter değiştir
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.type;
+                renderRecipients();
+            });
+        });
+
+        // Template'leri yükle (normal UI'daki gibi - quick-replies, whatsapp-templates, cloudapi-templates)
+        async function loadTemplates() {
+            const apiKey = localStorage.getItem('sleekflowApiKey');
+            const baseUrl = localStorage.getItem('sleekflowBaseUrl') || '';
+            const safeBaseUrl = (baseUrl && baseUrl !== 'undefined' && baseUrl !== 'null') ? baseUrl : '';
+            const channelNumber = localStorage.getItem('selectedChannelNumber') || '908505327532';
+            
+            console.log('📋 Template\'ler yükleniyor...', { 
+                hasApiKey: !!apiKey, 
+                baseUrl: safeBaseUrl, 
+                channelNumber 
+            });
+            
+            if (!apiKey) {
+                console.warn('⚠️ API key bulunamadı, template\'ler yüklenemiyor');
+                const templateSelect = document.getElementById('whatsappTemplates');
+                if (templateSelect) {
+                    templateSelect.innerHTML = '<option value="">SleekFlow bağlantısı yok</option>';
+                }
+                return;
+            }
+            
+            try {
+                // ✅ Normal UI'daki gibi 3 farklı template kaynağından çek
+                const quickRepliesUrl = `/api/sleekflow/quick-replies?apiKey=${encodeURIComponent(apiKey)}&limit=100&offset=0${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}`;
+                const whatsappTemplatesUrl = `/api/sleekflow/whatsapp-templates?apiKey=${encodeURIComponent(apiKey)}&limit=100&offset=0${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}`;
+                const cloudApiTemplatesUrl = `/api/sleekflow/cloudapi-templates?apiKey=${encodeURIComponent(apiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}&channelNumber=${encodeURIComponent(channelNumber)}`;
+                
+                console.log('📡 3 template API çağrısı yapılıyor:', {
+                    quickRepliesUrl,
+                    whatsappTemplatesUrl,
+                    cloudApiTemplatesUrl
+                });
+                
+                // ✅ Paralel olarak hepsini çek (Promise.allSettled - biri başarısız olsa bile diğerleri çalışır)
+                const responses = await Promise.allSettled([
+                    fetch(quickRepliesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } }),
+                    fetch(whatsappTemplatesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } }),
+                    fetch(cloudApiTemplatesUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+                ]);
+                
+                let allTemplates = [];
+                
+                // ✅ Quick-replies'ları işle
+                const quickRepliesResponse = responses[0];
+                if (quickRepliesResponse.status === 'fulfilled' && quickRepliesResponse.value.ok) {
+                    try {
+                        const quickRepliesData = await quickRepliesResponse.value.json();
+                        const quickReplies = quickRepliesData.templates || [];
+                        if (quickReplies.length > 0) {
+                            allTemplates = allTemplates.concat(quickReplies);
+                            console.log('✅ Quick-replies yüklendi:', quickReplies.length);
+                        }
+                    } catch (parseError) {
+                        console.warn('⚠️ Quick-replies parse hatası:', parseError);
+                    }
+                } else if (quickRepliesResponse.status === 'fulfilled') {
+                    try {
+                        const errorData = await quickRepliesResponse.value.json().catch(() => ({}));
+                        console.warn('⚠️ Quick-replies API hatası:', errorData.error || 'Bilinmeyen hata', quickRepliesResponse.value.status);
+                    } catch (e) {}
+                } else {
+                    console.warn('⚠️ Quick-replies yüklenemedi:', quickRepliesResponse.reason);
+                }
+                
+                // ✅ WhatsApp templates'ları işle
+                const whatsappTemplatesResponse = responses[1];
+                if (whatsappTemplatesResponse.status === 'fulfilled' && whatsappTemplatesResponse.value.ok) {
+                    try {
+                        const whatsappData = await whatsappTemplatesResponse.value.json();
+                        const whatsappTemplates = whatsappData.templates || whatsappData.whatsappTemplates || [];
+                        if (whatsappTemplates.length > 0) {
+                            allTemplates = allTemplates.concat(whatsappTemplates);
+                            console.log('✅ WhatsApp templates yüklendi:', whatsappTemplates.length);
+                        }
+                    } catch (parseError) {
+                        console.warn('⚠️ WhatsApp templates parse hatası:', parseError);
+                    }
+                } else if (whatsappTemplatesResponse.status === 'fulfilled') {
+                    try {
+                        const errorData = await whatsappTemplatesResponse.value.json().catch(() => ({}));
+                        console.warn('⚠️ WhatsApp templates API hatası:', errorData.error || 'Bilinmeyen hata', whatsappTemplatesResponse.value.status);
+                    } catch (e) {}
+                } else {
+                    console.warn('⚠️ WhatsApp templates yüklenemedi:', whatsappTemplatesResponse.reason);
+                }
+                
+                // ✅ Cloud API templates'ları işle
+                const cloudApiTemplatesResponse = responses[2];
+                if (cloudApiTemplatesResponse.status === 'fulfilled' && cloudApiTemplatesResponse.value.ok) {
+                    try {
+                        const cloudApiData = await cloudApiTemplatesResponse.value.json();
+                        const cloudTemplates = cloudApiData.templates || cloudApiData.whatsappTemplates || [];
+                        if (cloudTemplates.length > 0) {
+                            allTemplates = allTemplates.concat(cloudTemplates);
+                            console.log('✅ Cloud API templates yüklendi:', cloudTemplates.length);
+                        }
+                    } catch (parseError) {
+                        console.warn('⚠️ Cloud API templates parse hatası:', parseError);
+                    }
+                } else if (cloudApiTemplatesResponse.status === 'fulfilled') {
+                    try {
+                        const errorData = await cloudApiTemplatesResponse.value.json().catch(() => ({}));
+                        console.warn('⚠️ Cloud API templates API hatası:', errorData.error || 'Bilinmeyen hata', cloudApiTemplatesResponse.value.status);
+                    } catch (e) {}
+                } else {
+                    console.warn('⚠️ Cloud API templates yüklenemedi:', cloudApiTemplatesResponse.reason);
+                }
+                
+                // ✅ Template'leri order'a göre sırala (Cloud API önce, sonra WhatsApp, sonra quick-reply)
+                allTemplates.sort((a, b) => {
+                    const typePriority = (t) => {
+                        if (t.type === 'cloudapi') return 0;
+                        if (t.type === 'whatsapp') return 1;
+                        return 2; // quick-reply
+                    };
+                    const pa = typePriority(a);
+                    const pb = typePriority(b);
+                    if (pa !== pb) return pa - pb;
+                    return (a.order || 0) - (b.order || 0);
+                });
+                
+                // ✅ Cache'e kaydet (template seçildiğinde içeriği hızlıca almak için)
+                window.cachedTemplates = allTemplates;
+                
+                console.log('✅ Toplam template yüklendi:', allTemplates.length, {
+                    quickReplies: allTemplates.filter(t => t.type === 'quick-reply').length,
+                    whatsapp: allTemplates.filter(t => t.type === 'whatsapp').length,
+                    cloudapi: allTemplates.filter(t => t.type === 'cloudapi').length
+                });
+                
+                // ✅ Template'leri render et (modal içinde)
+                renderTemplates(allTemplates);
+            } catch (error) {
+                console.error('❌ Template\'ler yüklenemedi (genel hata):', error);
+                const templateSelect = document.getElementById('whatsappTemplates');
+                if (templateSelect) {
+                    templateSelect.innerHTML = '<option value="">Template yüklenemedi</option>';
+                }
+            }
+        }
+
+        // ✅ Templates modal fonksiyonları
+        function setupTemplatesModal() {
+            const openTemplatesBtn = document.getElementById('openTemplates');
+            const closeTemplatesModal = document.getElementById('closeTemplatesModal');
+            const templatesModal = document.getElementById('templatesModal');
+            const templateSearch = document.getElementById('templateSearch');
+            
+            // Templates butonuna tıklandığında modal'ı aç
+            if (openTemplatesBtn) {
+                openTemplatesBtn.onclick = function() {
+                    if (templatesModal) {
+                        templatesModal.style.display = 'block';
+                        loadTemplates();
+                    } else {
+                        console.error('❌ templatesModal bulunamadı!');
+                    }
+                };
+            }
+            
+            // Modal'ı kapat
+            if (closeTemplatesModal) {
+                closeTemplatesModal.onclick = function() {
+                    if (templatesModal) {
+                        templatesModal.style.display = 'none';
+                    }
+                };
+            }
+            
+            // Modal dışına tıklandığında kapat
+            if (templatesModal) {
+                templatesModal.onclick = function(e) {
+                    if (e.target === templatesModal) {
+                        templatesModal.style.display = 'none';
+                    }
+                };
+            }
+            
+            // Template arama
+            if (templateSearch) {
+                templateSearch.oninput = function(e) {
+                    filterTemplates(e.target.value);
+                };
+            }
+        }
+
+        // ✅ Template render fonksiyonu
+        function renderTemplates(templates) {
+            const templatesList = document.getElementById('templatesList');
+            if (!templatesList) {
+                console.error('❌ templatesList bulunamadı!');
+                return;
+            }
+            
+            if (templates.length === 0) {
+                templatesList.innerHTML = '<div style="padding: 20px; text-align: center;">Template bulunamadı</div>';
+                return;
+            }
+            
+            // ✅ Templates'ı global değişkende sakla
+            window.templatesData = templates;
+            
+            templatesList.innerHTML = templates.map(template => {
+                // ✅ Content'i escape et (HTML injection önleme)
+                const escapeHtml = (text) => {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                };
+                
+                const templateName = escapeHtml(template.name || 'Unnamed Template');
+                const templateContent = escapeHtml(template.content || '');
+                const templateId = escapeHtml((template.id || template.name || '').toString());
+                
+                // ✅ Template tipine göre badge göster
+                const templateType = template.type || 'quick-reply';
+                const typeBadge = templateType === 'cloudapi'
+                    ? '<span style="display: inline-block; background: #128C7E; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 600;">Cloud API</span>'
+                    : templateType === 'whatsapp'
+                        ? '<span style="display: inline-block; background: #25D366; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 600;">WhatsApp</span>'
+                        : '<span style="display: inline-block; background: #6366f1; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 600;">Quick Reply</span>';
+                
+                return `
+                    <div class="template-card" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; background: white; cursor: pointer; transition: box-shadow 0.2s;" 
+                         onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" 
+                         onmouseout="this.style.boxShadow='none'"
+                         onclick="selectTemplate('${templateId}')">
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111; flex: 1;">${templateName}</h3>
+                            ${typeBadge}
+                        </div>
+                        <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5; max-height: 100px; overflow: hidden; text-overflow: ellipsis; white-space: pre-wrap; word-wrap: break-word;">${templateContent}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // ✅ Template filtreleme
+        function filterTemplates(searchTerm) {
+            const templateCards = document.querySelectorAll('.template-card');
+            const term = searchTerm.toLowerCase();
+            
+            templateCards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(term) ? 'block' : 'none';
+            });
+        }
+        
+        // ✅ Seçili template'i sakla
+        let selectedTemplate = null;
+        let selectedTemplateVariables = null;
+        
+        // ✅ Template seçme fonksiyonu - Parametre desteği ile
+        window.selectTemplate = function(templateId) {
+            const templatesModal = document.getElementById('templatesModal');
+            const messageInput = document.getElementById('messageInput');
+            
+            // Template'i bul
+            let template = window.templatesData ? window.templatesData.find(t => (t.id || t.name || '').toString() === templateId) : null;
+            if (!template && window.cachedTemplates) {
+                template = window.cachedTemplates.find(t => (t.id || t.name || '').toString() === templateId);
+            }
+            
+            if (!template) {
+                console.error('Template bulunamadı:', templateId);
+                return;
+            }
+            
+            // ✅ Template içinde değişken alanlar var mı kontrol et ({{1}}, {{2}}, vb.)
+            const templateContent = template.content || '';
+            const variablePattern = /\{\{(\d+)\}\}/g;
+            const variables = [];
+            let match;
+            
+            while ((match = variablePattern.exec(templateContent)) !== null) {
+                const varNum = parseInt(match[1]);
+                if (!variables.includes(varNum)) {
+                    variables.push(varNum);
+                }
+            }
+            
+            // ✅ Eğer değişken alanlar varsa parametre modal'ını aç
+            if (variables.length > 0) {
+                selectedTemplate = template;
+                selectedTemplateVariables = variables.sort((a, b) => a - b);
+                showTemplateParametersModal(template, variables.sort((a, b) => a - b));
+                return;
+            }
+            
+            // ✅ Değişken yoksa normal şekilde mesaj input'una ekle
+            selectedTemplate = template;
+            
+            // Modal'ı kapat
+            if (templatesModal) {
+                templatesModal.style.display = 'none';
+            }
+            
+            // Mesaj alanına template içeriğini yaz
+            if (messageInput && template.content) {
+                messageInput.value = template.content;
+                console.log('✅ Template seçildi:', template.name, template);
+            }
+        };
+        
+        // ✅ Template parametre modalını göster
+        function showTemplateParametersModal(template, variables) {
+            const modal = document.getElementById('templateParametersModal');
+            const content = document.getElementById('templateParametersContent');
+            
+            if (!modal || !content) {
+                console.error('Template parametre modal elementi bulunamadı');
+                return;
+            }
+            
+            // ✅ Parametre input'larını oluştur - SADECE TEXT VE URL
+            let html = '<p style="margin-bottom: 16px; color: #666;">Lütfen template parametrelerini doldurun:</p>';
+            
+            // ✅ Mesaj preview alanı
+            html += `
+                <div id="templateMessagePreview" style="margin-bottom: 20px; padding: 16px; border: 2px solid #6366f1; border-radius: 8px; background: #f0f4ff;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #6366f1;">📋 Mesaj Önizleme:</label>
+                    <div id="templatePreviewContent" style="padding: 12px; background: white; border-radius: 6px; min-height: 50px; white-space: pre-wrap; word-wrap: break-word; color: #333; font-size: 14px; line-height: 1.5;">
+                        ${template.content || ''}
+                    </div>
+                </div>
+            `;
+            
+            variables.forEach((varNum, index) => {
+                html += `
+                    <div style="margin-bottom: 20px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px;">Parametre {{${varNum}}}</label>
+                        
+                        <!-- Parametre tipi seçimi - SADECE TEXT VE URL -->
+                        <select 
+                            id="templateParamType_${varNum}" 
+                            class="template-param-type"
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; font-size: 14px;"
+                            onchange="updateTemplateParamInput(${varNum}); updateTemplatePreview();"
+                        >
+                            <option value="text">📝 Metin</option>
+                            <option value="url">🔗 Link (URL)</option>
+                        </select>
+                        
+                        <!-- Text input -->
+                        <input 
+                            type="text" 
+                            id="templateParam_${varNum}" 
+                            class="template-param-input template-param-text" 
+                            placeholder="Değer girin..."
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; display: block;"
+                            oninput="updateTemplatePreview();"
+                        >
+                    </div>
+                `;
+            });
+            
+            content.innerHTML = html;
+            modal.style.display = 'block';
+            
+            // ✅ İlk input'a focus
+            const firstInput = document.getElementById(`templateParam_${variables[0]}`);
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 100);
+            }
+            
+            // ✅ Preview'ı başlat
+            updateTemplatePreview();
+        }
+        
+        // ✅ Parametre tipi değiştiğinde input'u güncelle - SADECE TEXT VE URL
+        window.updateTemplateParamInput = function(varNum) {
+            const typeSelect = document.getElementById(`templateParamType_${varNum}`);
+            const textInput = document.getElementById(`templateParam_${varNum}`);
+            
+            if (!typeSelect || !textInput) return;
+            
+            const paramType = typeSelect.value;
+            
+            if (paramType === 'text') {
+                textInput.type = 'text';
+                textInput.placeholder = 'Değer girin...';
+            } else if (paramType === 'url') {
+                textInput.type = 'url';
+                textInput.placeholder = 'https://example.com';
+            }
+            
+            // ✅ Preview'ı güncelle
+            updateTemplatePreview();
+        };
+        
+        // ✅ Template mesaj preview'ını güncelle
+        window.updateTemplatePreview = function() {
+            if (!selectedTemplate || !selectedTemplateVariables) return;
+            
+            const template = selectedTemplate;
+            const variables = selectedTemplateVariables;
+            const previewContent = document.getElementById('templatePreviewContent');
+            
+            if (!previewContent) return;
+            
+            // ✅ Template içeriğini al
+            let previewText = template.content || '';
+            
+            // ✅ Parametreleri yerleştir
+            variables.forEach(varNum => {
+                const textInput = document.getElementById(`templateParam_${varNum}`);
+                if (textInput) {
+                    const value = textInput.value.trim() || `{{${varNum}}}`;
+                    previewText = previewText.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), value);
+                }
+            });
+            
+            // ✅ Preview'ı güncelle
+            previewContent.textContent = previewText;
+        };
+        
+        // ✅ Template parametre modalını kapat
+        function closeTemplateParametersModal() {
+            const modal = document.getElementById('templateParametersModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            selectedTemplate = null;
+            selectedTemplateVariables = null;
+        }
+        
+        // ✅ Template parametreleriyle bulk mesaj gönder
+        window.sendBulkMessageWithTemplateParams = async function() {
+            if (!selectedTemplate || !selectedTemplateVariables) {
+                alert('Template veya parametreler bulunamadı');
+                return;
+            }
+            
+            const template = selectedTemplate;
+            const variables = selectedTemplateVariables;
+            
+            // ✅ Parametreleri topla - SADECE TEXT VE URL
+            const params = {};
+            const paramTypes = {};
+            let allFilled = true;
+            
+            variables.forEach(varNum => {
+                const typeSelect = document.getElementById(`templateParamType_${varNum}`);
+                const textInput = document.getElementById(`templateParam_${varNum}`);
+                
+                if (!typeSelect || !textInput) {
+                    allFilled = false;
+                    return;
+                }
+                
+                const paramType = typeSelect.value;
+                paramTypes[varNum] = paramType;
+                
+                const value = textInput.value.trim();
+                if (value) {
+                    params[varNum] = value;
+                } else {
+                    allFilled = false;
+                }
+            });
+            
+            if (!allFilled) {
+                alert('Lütfen tüm parametreleri doldurun!');
+                return;
+            }
+            
+            // ✅ Template içeriğini parametrelerle doldur
+            let messageContent = template.content || '';
+            variables.forEach(varNum => {
+                const value = params[varNum] || '';
+                messageContent = messageContent.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), value);
+            });
+            
+            // ✅ Modal'ı kapat
+            closeTemplateParametersModal();
+            
+            // ✅ Mesaj input'una yaz
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) {
+                messageInput.value = messageContent;
+            }
+            
+            // ✅ Bulk mesaj gönder
+            await sendBulkMessage();
+        };
+
+        // Toplu mesaj gönder
+        // ✅ Conversation ID bulma fonksiyonu (telefon numarasından)
+        async function findConversationByPhone(phone, apiKey, baseUrl) {
+            try {
+                const cleanPhone = phone.replace(/\D/g, '');
+                const response = await fetch(`/api/sleekflow/conversations?apiKey=${encodeURIComponent(apiKey)}${baseUrl ? '&baseUrl=' + encodeURIComponent(baseUrl) : ''}`);
+                if (!response.ok) return null;
+                
+                const data = await response.json();
+                const conversations = data.conversations || [];
+                
+                // Telefon numarasına göre conversation bul
+                for (const conv of conversations) {
+                    const convPhone = (conv.userProfile?.phone || conv.phone || '').replace(/\D/g, '');
+                    if (convPhone === cleanPhone) {
+                        return conv.id || conv.conversationId;
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('❌ Conversation bulunamadı:', error);
+                return null;
+            }
+        }
+
+        async function sendBulkMessage() {
+            const messageInput = document.getElementById('messageInput');
+            if (!messageInput) {
+                showError('Mesaj input alanı bulunamadı');
+                return;
+            }
+            
+            const message = messageInput.value.trim();
+            
+            // Template bilgilerini al
+            let templateId = null;
+            let templateName = null;
+            let templateLanguage = 'tr';
+            
+            if (selectedTemplate) {
+                templateId = selectedTemplate.id || selectedTemplate.name;
+                templateName = selectedTemplate.name || selectedTemplate.id;
+                templateLanguage = selectedTemplate.language || selectedTemplate.lang || 'tr';
+                console.log('✅✅✅ Template seçilmiş:', { templateId, templateName, templateLanguage, selectedTemplate });
+            } else {
+                console.warn('⚠️⚠️⚠️ Template seçilmemiş! selectedTemplate:', selectedTemplate);
+            }
+            
+            if (!message && !templateName) {
+                showError('Lütfen mesaj yazın veya template seçin');
+                return;
+            }
+            
+            if (recipients.length === 0) {
+                showError('En az bir alıcı seçmelisiniz');
+                return;
+            }
+            
+            const sendBtn = document.getElementById('sendBtn');
+            const loading = document.getElementById('loading');
+            
+            if (!sendBtn || !loading) {
+                showError('Gönder butonu veya loading elementi bulunamadı');
+                return;
+            }
+            
+            sendBtn.disabled = true;
+            loading.classList.add('active');
+            hideError();
+            hideSuccess();
+            
+            try {
+                const apiKey = localStorage.getItem('sleekflowApiKey');
+                const baseUrl = localStorage.getItem('sleekflowBaseUrl') || 'https://api.sleekflow.io';
+                const safeBaseUrl = (baseUrl && baseUrl !== 'undefined' && baseUrl !== 'null') ? baseUrl : '';
+                
+                if (!apiKey || apiKey.trim().length < 10) {
+                    throw new Error('SleekFlow bağlantısı yok. Lütfen önce bağlanın.');
+                }
+                
+                console.log('📤 Toplu mesaj gönderiliyor...', {
+                    recipientCount: recipients.length,
+                    hasMessage: !!message,
+                    hasTemplate: !!templateName
+                });
+                
+                // ✅ Her bir recipient için SIRAYLA mesaj gönder (normal UI'daki gibi)
+                // ✅ ÖNEMLİ: Sırayla gönder, aynı anda gönderme (rate limiting için)
+                const results = [];
+                const errors = [];
+                
+                // ✅ Sırayla gönder - her mesaj arasında bekle (NORMAL UI MANTIĞI)
+                for (let i = 0; i < recipients.length; i++) {
+                    const recipient = recipients[i];
+                    const phone = recipient.phone.replace(/\D/g, '');
+                    if (!phone) continue;
+                    
+                    try {
+                        // ✅ NORMAL UI MANTIĞI: Conversation ID bul (yoksa telefon numarası kullanılacak)
+                        let conversationId = await findConversationByPhone(phone, apiKey, safeBaseUrl);
+                        
+                        // ✅ Conversation ID yoksa telefon numarasını kullan (backend telefon numarasından conversation bulacak)
+                        const conversationIdOrPhone = conversationId || phone;
+                        
+                        // ✅ NORMAL UI MANTIĞI: Template varsa içeriği text olarak kullan (normal UI'daki gibi)
+                        // ✅ Normal UI'da template seçildiğinde içerik mesaj input'una yazılıyor ve normal mesaj gibi gönderiliyor
+                        // ✅ Template içeriği text olarak gönderiliyor, template bilgileri payload'a eklenmiyor (normal UI'daki gibi)
+                        let textToSend = message || '';
+                        if (templateName && selectedTemplate && selectedTemplate.content) {
+                            // Template içeriğini text olarak kullan (normal UI'daki gibi)
+                            textToSend = selectedTemplate.content || textToSend;
+                        }
+                        
+                        // ✅ HAMZAH DESTEĞİ: Seçili sender numarasını fromPhone olarak ekle
+                        const senderSelect = document.getElementById('senderSelect');
+                        const selectedSenderPhone = senderSelect && senderSelect.value ? senderSelect.value : '';
+                        
+                        // ✅ NORMAL UI PAYLOAD: Sadece text, apiKey, baseUrl gönder (TAM OLARAK NORMAL UI GİBİ)
+                        // ✅ HAMZAH DESTEĞİ: fromPhone ekle (VIP veya Hamzah için)
+                        // ✅ NOT: Normal UI'da template bilgileri payload'a eklenmiyor, sadece text gönderiliyor
+                        // ✅ BULK MESAJ FLAG: Backend'e bulk mesaj olduğunu bildir (FROM sabit numara için)
+                        const messagePayload = {
+                            text: textToSend || undefined,
+                            apiKey,
+                            baseUrl: safeBaseUrl,
+                            isBulkMessage: true, // ✅ Bulk mesaj flag'i
+                            fromPhone: selectedSenderPhone || undefined // ✅ HAMZAH DESTEĞİ: Seçili sender numarası
+                        };
+                        
+                        console.log(`📤 [${i + 1}/${recipients.length}] ${phone} için mesaj gönderiliyor (NORMAL UI MANTIĞI - TAM OLARAK AYNI)...`, {
+                            conversationIdOrPhone,
+                            text: textToSend ? textToSend.substring(0, 50) : '',
+                            hasTemplate: !!templateName
+                        });
+                        
+                        // ✅ NORMAL UI ENDPOINT: TAM OLARAK AYNI ENDPOINT (normal UI'daki gibi)
+                        const response = await fetch(`/api/sleekflow/conversations/${conversationIdOrPhone}/messages?apiKey=${encodeURIComponent(apiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(messagePayload)
+                        });
+                        
+                        // ✅ NORMAL UI RESPONSE KONTROLÜ: TAM OLARAK AYNI KONTROL (normal UI'daki gibi)
+                        if (!response.ok) {
+                            let errorData;
+                            try {
+                                errorData = await response.json();
+                            } catch (e) {
+                                errorData = { error: `HTTP ${response.status}: Mesaj gönderilemedi` };
+                            }
+                            
+                            const errorMsg = errorData?.error || errorData?.message || `HTTP ${response.status}: Mesaj gönderilemedi`;
+                            console.error(`❌ [${i + 1}/${recipients.length}] ${phone} için mesaj gönderilemedi (HTTP ${response.status}):`, errorMsg, errorData);
+                            errors.push({ phone, error: errorMsg });
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            continue;
+                        }
+                        
+                        const result = await response.json();
+                        
+                        // ✅ DETAYLI RESPONSE KONTROLÜ: Backend'den gelen response'u detaylı kontrol et
+                        console.log(`🔍 [${i + 1}/${recipients.length}] ${phone} için backend response:`, result);
+                        
+                        // ✅ NORMAL UI RESPONSE KONTROLÜ: TAM OLARAK AYNI KONTROL (normal UI'daki gibi)
+                        if (!result || !result.success) {
+                            const errorMsg = result?.error || result?.message || 'Mesaj gönderilemedi';
+                            console.error(`❌ [${i + 1}/${recipients.length}] ${phone} için mesaj gönderilemedi (backend error):`, errorMsg, result);
+                            errors.push({ phone, error: errorMsg });
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            continue;
+                        }
+                        
+                        // ✅ EK KONTROL: Backend'den success: true geldi ama SleekFlow API'den hata gelmiş olabilir
+                        // ✅ Backend'de zaten kontrol yapılıyor ama ekstra güvenlik için
+                        if (result.data && typeof result.data === 'object') {
+                            const data = result.data;
+                            // ✅ Array kontrolü
+                            if (Array.isArray(data) && data.length > 0) {
+                                const firstItem = data[0];
+                                if (firstItem.error || firstItem.status === 'Failed' || firstItem.status === 'failed') {
+                                    const errorMsg = firstItem.error || firstItem.channelStatusMessage || firstItem.message || 'SleekFlow API mesajı reddetti';
+                                    console.error(`❌ [${i + 1}/${recipients.length}] ${phone} için SleekFlow API hatası:`, errorMsg, firstItem);
+                                    errors.push({ phone, error: errorMsg });
+                                    await new Promise(resolve => setTimeout(resolve, 500));
+                                    continue;
+                                }
+                            } else if (!Array.isArray(data)) {
+                                // ✅ Object kontrolü
+                                if (data.status === 'Failed' || data.status === 'failed' || data.error) {
+                                    const errorMsg = data.channelStatusMessage || data.error || data.message || 'SleekFlow API mesajı reddetti';
+                                    console.error(`❌ [${i + 1}/${recipients.length}] ${phone} için SleekFlow API hatası:`, errorMsg, data);
+                                    errors.push({ phone, error: errorMsg });
+                                    await new Promise(resolve => setTimeout(resolve, 500));
+                                    continue;
+                                }
+                            }
+                        }
+                        
+                        console.log(`✅ [${i + 1}/${recipients.length}] ${phone} için mesaj başarıyla gönderildi!`, result);
+                        results.push({ phone, success: true, result: result });
+                        
+                        // ✅ Rate limiting (500ms bekle - normal UI'daki gibi)
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        
+                    } catch (error) {
+                        console.error(`❌ [${i + 1}/${recipients.length}] ${phone} için mesaj gönderme hatası:`, error);
+                        errors.push({ phone, error: error.message || 'Bilinmeyen hata' });
+                        // ✅ Hata olsa bile bir sonraki mesajdan önce bekle
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+                
+                // ✅ Sonuçları göster
+                const successCount = results.length;
+                const errorCount = errors.length;
+                
+                let errorDetails = '';
+                if (errors.length > 0) {
+                    errorDetails = '\n\n❌ Hatalar:\n';
+                    errors.forEach((err, index) => {
+                        errorDetails += `${index + 1}. ${err.phone}: ${err.error}\n`;
+                    });
+                }
+                
+                if (successCount > 0) {
+                    showSuccess(`✅ ${successCount} mesaj başarıyla gönderildi! ${errorCount > 0 ? `(${errorCount} hata)` : ''}${errorDetails}`);
+                } else {
+                    showError(`❌ Hiç mesaj gönderilemedi! (${errorCount} hata)${errorDetails}`);
+                }
+                
+                messageInput.value = '';
+                selectedTemplate = null; // Template seçimini temizle
+                
+            } catch (error) {
+                console.error('❌ Toplu mesaj gönderme hatası:', error);
+                showError('Hata: ' + error.message);
+            } finally {
+                sendBtn.disabled = false;
+                loading.classList.remove('active');
+            }
+        }
+
+        // Helper functions
+        function showError(message) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = message;
+            el.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('successMessage');
+            el.textContent = message;
+            el.classList.add('show');
+        }
+
+        function hideSuccess() {
+            document.getElementById('successMessage').classList.remove('show');
+        }
+
+        // ✅ ÖNCE: Seçili lead'lerin telefon numaralarını çek (Zoho CRM'den seçili lead'ler varsa)
+        async function loadSelectedLeadsPhones() {
+            console.log('🔍🔍🔍 Seçili lead\'lerin telefon numaraları çekiliyor...');
+            
+            // ✅ 1. ADIM: Zoho CRM'den seçili lead ID'lerini al (retry ile)
+            let selectedLeadIdsFromZoho = [];
+            let retryCount = 0;
+            const maxRetries = 10;
+            
+            while (retryCount < maxRetries && (!selectedLeadIdsFromZoho || selectedLeadIdsFromZoho.length === 0)) {
+                selectedLeadIdsFromZoho = await getSelectedLeadsFromZoho();
+                
+                if (selectedLeadIdsFromZoho && selectedLeadIdsFromZoho.length > 0) {
+                    console.log('✅✅✅ Seçili lead ID\'leri bulundu:', selectedLeadIdsFromZoho);
+                    break;
+                } else {
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        console.log(`ℹ️ Seçili lead bulunamadı, ${retryCount + 1}. deneme yapılıyor... (${retryCount}/${maxRetries})`);
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+            }
+            
+            // ✅ 2. ADIM: Eğer seçili lead'ler varsa, SADECE ONLARIN TELEFON NUMARALARINI çek
+            if (selectedLeadIdsFromZoho && selectedLeadIdsFromZoho.length > 0) {
+                console.log('✅✅✅ Seçili lead\'lerin telefon numaraları çekiliyor...', selectedLeadIdsFromZoho);
+                
+                try {
+                    const baseUrl = getBaseUrl();
+                    const leadIdsParam = selectedLeadIdsFromZoho.join(',');
+                    const response = await fetch(`${baseUrl}/api/zoho/selected-leads?leadIds=${leadIdsParam}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('✅✅✅ Seçili lead\'lerin telefon numaraları çekildi:', data);
+                    
+                    if (data.success && data.leads && data.leads.length > 0) {
+                        // ✅ Sadece telefon numarası olan lead'leri filtrele
+                        const leadsWithPhones = data.leads.filter(lead => {
+                            const phone = lead.Phone || lead.Mobile || lead.Secondary_Phone || 
+                                        lead.phone || lead.mobile || lead.secondary_phone;
+                            return phone && phone.trim().length > 0;
+                        });
+                        
+                        console.log('✅✅✅ Telefon numarası olan lead\'ler:', leadsWithPhones.length);
+                        
+                        // ✅ Seçili lead ID'lerini Set'e ekle
+                        selectedLeadIdsFromZoho.forEach(id => {
+                            selectedLeadIds.add(id);
+                            console.log('✅ Lead ID Set\'e eklendi:', id);
+                        });
+                        
+                        // ✅ Recipients oluştur (SADECE TELEFON NUMARALARI)
+                        buildRecipients(leadsWithPhones);
+                        
+                        // ✅ "Lead Seçimi" bölümünü gizle (seçili lead'ler otomatik geldi)
+                        const leadSelectionSection = document.querySelector('.section');
+                        if (leadSelectionSection && leadSelectionSection.querySelector('#leadSearch')) {
+                            leadSelectionSection.style.display = 'none';
+                            console.log('✅ Lead seçimi bölümü gizlendi (Zoho CRM\'den seçili lead\'ler kullanılıyor)');
+                        }
+                        
+                        // ✅ Recipients render et
+                        renderRecipients();
+                        
+                        return true; // ✅ Seçili lead'ler bulundu ve telefon numaraları çekildi
+                    } else {
+                        console.warn('⚠️ Seçili lead\'ler çekilemedi, tüm lead\'ler yüklenecek');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('❌ Seçili lead\'lerin telefon numaraları çekilemedi:', error);
+                    return false; // Hata olsa bile devam et, tüm lead'leri yükle
+                }
+            } else {
+                console.log('ℹ️ Zoho CRM\'de seçili lead bulunamadı, tüm lead\'ler yüklenecek');
+                return false;
+            }
+        }
+
+        // ✅ Tüm lead'leri çek ve göster
+        let allLeads = [];
+        let selectedLeadIds = new Set();
+
+        // ✅ Lead ID'yi normalize et (Zoho farklı alan adları kullanabilir)
+        function getLeadId(lead) {
+            return (lead?.id || lead?.Id || lead?.ID || lead?.recordId || lead?.record_id || '').toString();
+        }
+        
+        async function loadAllLeads() {
+            const leadsList = document.getElementById('leadsList');
+            const searchTerm = document.getElementById('leadSearch')?.value || '';
+            
+            if (leadsList) {
+                leadsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Lead\'ler yükleniyor...</div>';
+            }
+            
+            try {
+                const url = `/api/zoho/all-leads?perPage=200${searchTerm ? '&search=' + encodeURIComponent(searchTerm) : ''}`;
+                console.log('📞 Tüm lead\'ler çekiliyor...', { url, searchTerm });
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('❌ Lead\'ler çekilemedi (HTTP error):', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        errorData: errorData
+                    });
+                    
+                    // ✅ 401 hatası için özel mesaj
+                    if (response.status === 401) {
+                        const errorMsg = 'Zoho CRM bağlantısı yok veya geçersiz. Lütfen Render.com\'da Zoho API credentials (ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_ORG_ID) kontrol edin.';
+                        if (leadsList) {
+                            leadsList.innerHTML = `<div style="text-align: center; padding: 20px; color: red;">
+                                <strong>❌ Zoho CRM Bağlantı Hatası</strong><br>
+                                <p>HTTP 401 - Authentication Failed</p>
+                                <p style="font-size: 12px; margin-top: 8px;">Render.com'da environment variables kontrol edin:<br>
+                                ZOHO_CLIENT_ID<br>
+                                ZOHO_CLIENT_SECRET<br>
+                                ZOHO_ORG_ID</p>
+                            </div>`;
+                        }
+                        showError(errorMsg);
+                        throw new Error(errorMsg);
+                    }
+                    
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Lead\'ler çekildi:', { count: data.leads?.length || 0, data });
+                
+                allLeads = data.leads || [];
+                renderLeadsList();
+            } catch (error) {
+                console.error('❌ Lead\'ler çekilemedi:', error);
+                if (leadsList && !leadsList.innerHTML.includes('Zoho CRM Bağlantı Hatası')) {
+                    leadsList.innerHTML = `<div style="text-align: center; padding: 20px; color: red;">Lead'ler yüklenemedi: ${error.message}</div>`;
+                }
+                if (!error.message.includes('Zoho CRM bağlantısı')) {
+                    showError('Lead\'ler yüklenemedi: ' + error.message);
+                }
+            }
+        }
+        
+        // ✅ Lead listesini render et (checkbox'larla)
+        function renderLeadsList() {
+            const leadsList = document.getElementById('leadsList');
+            if (!leadsList) {
+                console.error('❌ leadsList bulunamadı!');
+                return;
+            }
+            
+            if (allLeads.length === 0) {
+                leadsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Lead bulunamadı</div>';
+                return;
+            }
+            
+            leadsList.innerHTML = allLeads.map(lead => {
+                const name = (lead.First_Name && lead.Last_Name) 
+                    ? `${lead.First_Name} ${lead.Last_Name}` 
+                    : (lead.First_Name || lead.Last_Name || lead.Full_Name || 'İsimsiz');
+                
+                const phone = lead.Phone || lead.phone || '';
+                const mobile = lead.Mobile || lead.mobile || '';
+                const secondaryPhone = lead.Secondary_Phone || lead.secondary_phone || lead.SecondaryPhone || '';
+                const hasPhone = phone || mobile || secondaryPhone;
+
+                const leadId = getLeadId(lead);
+                const isSelected = selectedLeadIds.has(leadId);
+                
+                return `
+                    <div class="lead-item" style="display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: white; border-radius: 6px; border: 1px solid ${isSelected ? '#667eea' : '#e0e0e0'}; ${isSelected ? 'background: #f0f4ff;' : ''}">
+                        <input 
+                            type="checkbox" 
+                            class="lead-checkbox" 
+                            data-lead-id="${leadId}"
+                            ${isSelected ? 'checked' : ''}
+                            onchange="toggleLeadSelection('${leadId}', this.checked)"
+                            style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;"
+                        >
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${name}</div>
+                            <div style="font-size: 12px; color: #666;">
+                                ${phone ? `📞 ${phone}` : ''} ${mobile ? `📱 ${mobile}` : ''} ${secondaryPhone ? `📞 ${secondaryPhone}` : ''}
+                                ${!hasPhone ? '<span style="color: #ef4444;">⚠️ Telefon yok</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            updateRecipientsFromSelectedLeads();
+        }
+        
+        // ✅ Lead seçimi toggle
+        window.toggleLeadSelection = function(leadId, isSelected) {
+            if (isSelected) {
+                selectedLeadIds.add(leadId);
+            } else {
+                selectedLeadIds.delete(leadId);
+            }
+            console.log('✅ Lead seçimi değişti:', { leadId, isSelected, totalSelected: selectedLeadIds.size });
+            updateRecipientsFromSelectedLeads();
+        };
+        
+        // ✅ Seçili lead'lerden recipients oluştur
+        function updateRecipientsFromSelectedLeads() {
+            const selectedLeads = allLeads.filter(lead => selectedLeadIds.has(getLeadId(lead)));
+            const selectedCountEl = document.getElementById('selectedLeadCount');
+            if (selectedCountEl) {
+                selectedCountEl.textContent = selectedLeads.length;
+            }
+            
+            console.log('📋 Seçili lead\'ler:', { count: selectedLeads.length, leads: selectedLeads });
+            
+            if (selectedLeads.length > 0) {
+                buildRecipients(selectedLeads);
+            } else {
+                recipients = [];
+                allRecipients = [];
+                renderRecipients();
+            }
+        }
+        
+        // ✅ Tümünü seç / Seçimi temizle
+        window.selectAllLeads = function() {
+            allLeads.forEach(lead => {
+                const leadId = getLeadId(lead);
+                if (leadId) {
+                    selectedLeadIds.add(leadId);
+                }
+            });
+            console.log('✅ Tüm lead\'ler seçildi:', selectedLeadIds.size);
+            renderLeadsList();
+        };
+        
+        window.deselectAllLeads = function() {
+            selectedLeadIds.clear();
+            console.log('✅ Tüm seçimler temizlendi');
+            renderLeadsList();
+        };
+        
+        // ✅ Lead arama
+        const leadSearchInput = document.getElementById('leadSearch');
+        if (leadSearchInput) {
+            leadSearchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.trim();
+                clearTimeout(window.searchTimeout);
+                window.searchTimeout = setTimeout(() => {
+                    loadAllLeads();
+                }, 500); // 500ms debounce
+            });
+        }
+
+        // ✅ Zoho CRM'den seçili lead'lerin TELEFON NUMARALARINI direkt al (ID'ye gerek yok!)
+        async function getSelectedLeadsPhonesFromZoho() {
+            try {
+                // ✅ SDK'nın yüklenmesini bekle
+                let retryCount = 0;
+                const maxRetries = 10;
+                
+                while (typeof ZOHO === 'undefined' && retryCount < maxRetries) {
+                    console.log(`⏳ Zoho SDK yükleniyor... (${retryCount + 1}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retryCount++;
+                }
+                
+                if (typeof ZOHO === 'undefined') {
+                    console.warn('⚠️ Zoho CRM API yüklü değil');
+                    return [];
+                }
+                
+                // ✅ embeddedApp'i başlat
+                if (typeof ZOHO.embeddedApp !== 'undefined') {
+                    try {
+                        await ZOHO.embeddedApp.init();
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    } catch (initError) {
+                        console.warn('⚠️ Zoho embeddedApp başlatılamadı:', initError);
+                    }
+                }
+                
+                // ✅ getSelectedRecords() ile seçili lead'leri al (telefon numaraları dahil!)
+                if (ZOHO.CRM && ZOHO.CRM.UI && typeof ZOHO.CRM.UI.getSelectedRecords === 'function') {
+                    try {
+                        console.log('📞 Seçili lead\'lerin telefon numaraları direkt alınıyor...');
+                        
+                        let selectedRecords = await ZOHO.CRM.UI.getSelectedRecords();
+                        if (!selectedRecords || (Array.isArray(selectedRecords) && selectedRecords.length === 0)) {
+                            try {
+                                selectedRecords = await ZOHO.CRM.UI.getSelectedRecords({ Entity: 'Leads' });
+                            } catch (e) {}
+                        }
+                        if (!selectedRecords || (Array.isArray(selectedRecords) && selectedRecords.length === 0)) {
+                            try {
+                                selectedRecords = await ZOHO.CRM.UI.getSelectedRecords({ entity: 'Leads' });
+                            } catch (e) {}
+                        }
+                        if (!selectedRecords || (Array.isArray(selectedRecords) && selectedRecords.length === 0)) {
+                            try {
+                                selectedRecords = await ZOHO.CRM.UI.getSelectedRecords({ module: 'Leads' });
+                            } catch (e) {}
+                        }
+                        
+                        console.log('✅✅✅ getSelectedRecords() sonucu:', selectedRecords);
+                        
+                        if (selectedRecords) {
+                            const recordsArray = Array.isArray(selectedRecords) ? selectedRecords : [selectedRecords];
+                            
+                            if (recordsArray.length > 0) {
+                                // ✅ Direkt telefon numaralarını çıkar!
+                                const leadsWithPhones = recordsArray
+                                    .map(record => {
+                                        const phone = record.Phone || record.phone || '';
+                                        const mobile = record.Mobile || record.mobile || '';
+                                        const secondaryPhone = record.Secondary_Phone || record.SecondaryPhone || record.secondary_phone || '';
+                                        
+                                        const firstName = record.First_Name || record.FirstName || record.first_name || '';
+                                        const lastName = record.Last_Name || record.LastName || record.last_name || '';
+                                        const fullName = record.Full_Name || record.FullName || record.full_name || 
+                                                        (firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'İsimsiz');
+                                        
+                                        const leadId = record.id || record.Id || record.ID || record.recordId || record.record_id || '';
+                                        
+                                        return {
+                                            id: leadId,
+                                            name: fullName,
+                                            Phone: phone,
+                                            Mobile: mobile,
+                                            Secondary_Phone: secondaryPhone,
+                                            First_Name: firstName,
+                                            Last_Name: lastName
+                                        };
+                                    })
+                                    .filter(lead => {
+                                        // ✅ Sadece telefon numarası olan lead'leri al
+                                        const hasPhone = (lead.Phone && lead.Phone.trim()) || 
+                                                       (lead.Mobile && lead.Mobile.trim()) || 
+                                                       (lead.Secondary_Phone && lead.Secondary_Phone.trim());
+                                        return hasPhone;
+                                    });
+                                
+                                console.log('✅✅✅✅✅ Direkt telefon numaraları alındı:', leadsWithPhones.length, 'lead');
+                                return leadsWithPhones;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ getSelectedRecords() çalışmadı:', error);
+                    }
+                }
+                
+                // ✅ getPageInfo() ile de dene
+                if (ZOHO.CRM && ZOHO.CRM.UI && typeof ZOHO.CRM.UI.getPageInfo === 'function') {
+                    try {
+                        const pageInfo = await ZOHO.CRM.UI.getPageInfo();
+                        console.log('✅✅✅ getPageInfo() sonucu:', pageInfo);
+                        
+                        if (pageInfo && pageInfo.selectedRecords && pageInfo.selectedRecords.length > 0) {
+                            const leadsWithPhones = pageInfo.selectedRecords
+                                .map(record => {
+                                    const phone = record.Phone || record.phone || '';
+                                    const mobile = record.Mobile || record.mobile || '';
+                                    const secondaryPhone = record.Secondary_Phone || record.SecondaryPhone || record.secondary_phone || '';
+                                    
+                                    const firstName = record.First_Name || record.FirstName || record.first_name || '';
+                                    const lastName = record.Last_Name || record.LastName || record.last_name || '';
+                                    const fullName = record.Full_Name || record.FullName || record.full_name || 
+                                                    (firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'İsimsiz');
+                                    
+                                    const leadId = record.id || record.Id || record.ID || record.recordId || record.record_id || '';
+                                    
+                                    return {
+                                        id: leadId,
+                                        name: fullName,
+                                        Phone: phone,
+                                        Mobile: mobile,
+                                        Secondary_Phone: secondaryPhone,
+                                        First_Name: firstName,
+                                        Last_Name: lastName
+                                    };
+                                })
+                                .filter(lead => {
+                                    const hasPhone = (lead.Phone && lead.Phone.trim()) || 
+                                                   (lead.Mobile && lead.Mobile.trim()) || 
+                                                   (lead.Secondary_Phone && lead.Secondary_Phone.trim());
+                                    return hasPhone;
+                                });
+                            
+                            if (leadsWithPhones.length > 0) {
+                                console.log('✅✅✅✅✅ getPageInfo() ile telefon numaraları alındı:', leadsWithPhones.length);
+                                return leadsWithPhones;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ getPageInfo() çalışmadı:', error);
+                    }
+                }
+                
+                return [];
+            } catch (error) {
+                console.error('❌ Seçili lead telefon numaraları alınamadı:', error);
+                return [];
+            }
+        }
+
+        // ✅ Zoho CRM'den seçili lead'leri al (JavaScript API ile) - ESKİ FONKSİYON (geriye uyumluluk için)
+        async function getSelectedLeadsFromZoho() {
+            try {
+                if (pageLoadSelectedIds && pageLoadSelectedIds.length > 0) {
+                    console.log('✅ PageLoad ile alınan seçili lead ID\'leri kullanılıyor:', pageLoadSelectedIds);
+                    return pageLoadSelectedIds;
+                }
+
+                // ✅ Yöntem 0: URL parametrelerinden al (en güvenilir - custom button'dan geliyorsa)
+                const urlParams = new URLSearchParams(window.location.search);
+                let leadIdsParam = urlParams.get('leadIds') || urlParams.get('recordIds') || urlParams.get('ids');
+                
+                console.log('🔍🔍🔍 URL parametreleri kontrol ediliyor:', {
+                    fullUrl: window.location.href,
+                    search: window.location.search,
+                    leadIds: leadIdsParam,
+                    allParams: Object.fromEntries(urlParams.entries()),
+                    hash: window.location.hash,
+                    referrer: document.referrer
+                });
+                
+                // ✅ EKSTRA: Hash'ten de kontrol et (bazen Zoho CRM hash kullanır)
+                if (window.location.hash) {
+                    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                    const hashLeadIds = hashParams.get('leadIds') || hashParams.get('recordIds') || hashParams.get('ids');
+                    console.log('🔍🔍🔍 Hash parametreleri:', {
+                        hash: window.location.hash,
+                        hashLeadIds: hashLeadIds
+                    });
+                    if (hashLeadIds && hashLeadIds !== '$recordIds' && !hashLeadIds.includes('$recordIds')) {
+                        const ids = hashLeadIds.split(',').map(id => id.trim()).filter(id => id && id.length >= 10);
+                        if (ids.length > 0) {
+                            console.log('✅✅✅✅✅ Hash\'ten alınan lead ID\'leri:', ids);
+                            return ids;
+                        }
+                    }
+                }
+                
+                // ✅ Eğer $recordIds literal string'i varsa, Zoho CRM JavaScript API'den almayı dene
+                if (leadIdsParam === '$recordIds' || leadIdsParam?.includes('$recordIds')) {
+                    console.log('⚠️⚠️⚠️ URL\'de $recordIds literal string\'i var, Zoho CRM JavaScript API\'den alınacak');
+                    leadIdsParam = null; // Aşağıdaki API çağrılarına geç
+                } else if (leadIdsParam && leadIdsParam.trim() && leadIdsParam.trim() !== '$recordIds') {
+                    const ids = leadIdsParam.split(',').map(id => id.trim()).filter(id => id && id.length >= 10);
+                    if (ids.length > 0) {
+                        console.log('✅✅✅✅✅ URL parametrelerinden alınan lead ID\'leri:', ids);
+                        return ids;
+                    } else {
+                        console.warn('⚠️ URL\'den leadIdsParam var ama geçerli ID yok:', leadIdsParam);
+                        leadIdsParam = null; // JavaScript API'ye geç
+                    }
+                } else {
+                    console.warn('⚠️ URL\'de leadIdsParam yok veya boş:', leadIdsParam);
+                    leadIdsParam = null; // JavaScript API'ye geç
+                }
+                
+                // ✅ SDK'nın yüklenmesini bekle (sayfa yüklenirken SDK henüz yüklenmemiş olabilir)
+                let retryCount = 0;
+                const maxRetries = 10; // Daha fazla bekle
+                
+                while (typeof ZOHO === 'undefined' && retryCount < maxRetries) {
+                    console.log(`⏳ Zoho SDK yükleniyor... (${retryCount + 1}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniye bekle
+                    retryCount++;
+                }
+                
+                // Zoho CRM JavaScript API'si yüklü mü kontrol et
+                if (typeof ZOHO === 'undefined') {
+                    console.warn('⚠️ Zoho CRM API yüklü değil (sayfa ayrı tab\'da açılmış olabilir)');
+                    return null;
+                }
+                
+                console.log('📞 Zoho CRM API\'den seçili lead\'ler alınıyor...');
+                console.log('🔍 Zoho API durumu:', {
+                    hasZOHO: typeof ZOHO !== 'undefined',
+                    hasCRM: typeof ZOHO.CRM !== 'undefined',
+                    hasUI: typeof ZOHO.CRM?.UI !== 'undefined',
+                    hasEmbeddedApp: typeof ZOHO.embeddedApp !== 'undefined',
+                    hasAPI: typeof ZOHO.CRM?.API !== 'undefined'
+                });
+                
+                // ✅ Önce embeddedApp'i başlat (eğer varsa)
+                if (typeof ZOHO.embeddedApp !== 'undefined') {
+                    try {
+                        await ZOHO.embeddedApp.init();
+                        console.log('✅ Zoho embeddedApp başlatıldı');
+                        // Init'ten sonra biraz bekle
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    } catch (initError) {
+                        console.warn('⚠️ Zoho embeddedApp başlatılamadı (normal olabilir - sayfa widget içinde değil):', initError);
+                    }
+                }
+
+                // ✅ Yöntem 0.5: getPageInfo() doğrudan dene (getSelectedRecords olmasa bile çalışabilir)
+                if (ZOHO.CRM && ZOHO.CRM.UI && typeof ZOHO.CRM.UI.getPageInfo === 'function') {
+                    try {
+                        const pageInfo = await ZOHO.CRM.UI.getPageInfo();
+                        console.log('✅✅✅ getPageInfo() sonucu:', pageInfo);
+                        const candidates = [];
+                        if (pageInfo?.selectedRecords) candidates.push(...pageInfo.selectedRecords);
+                        if (pageInfo?.selectedRecordIds) candidates.push(...pageInfo.selectedRecordIds);
+                        if (pageInfo?.recordIds) candidates.push(...pageInfo.recordIds);
+                        if (pageInfo?.records) candidates.push(...pageInfo.records);
+                        const pageInfoIds = candidates
+                            .map(rec => rec?.id || rec?.Id || rec?.ID || rec?.recordId || rec?.record_id || rec)
+                            .map(id => (id ? id.toString() : null))
+                            .filter(id => id && id.length >= 10);
+                        if (pageInfoIds.length > 0) {
+                            console.log('✅✅✅✅✅ getPageInfo() ile alınan lead ID\'leri:', pageInfoIds);
+                            return pageInfoIds;
+                        }
+                    } catch (pageInfoError) {
+                        console.warn('⚠️ getPageInfo() çalışmadı:', pageInfoError);
+                    }
+                }
+                
+                // ✅ YÖNTEM 0: DOM'dan seçili checkbox'ları kontrol et (EN HIZLI VE GÜVENİLİR)
+                // Zoho CRM'de seçili lead'ler checkbox'larla işaretlenir, bunları DOM'dan okuyabiliriz
+                try {
+                    console.log('🔍🔍🔍 DOM\'dan seçili checkbox\'lar kontrol ediliyor...');
+                    
+                    // ✅ ÖNCE: Parent window'dan (Zoho CRM sayfasından) seçili checkbox'ları al
+                    if (window.parent && window.parent !== window) {
+                        try {
+                            const parentDoc = window.parent.document;
+                            if (parentDoc) {
+                                // ✅ Tüm seçili checkbox'ları bul
+                                const selectedCheckboxes = parentDoc.querySelectorAll('input[type="checkbox"]:checked');
+                                console.log('✅✅✅ Parent window\'dan seçili checkbox\'lar:', selectedCheckboxes.length);
+                                
+                                if (selectedCheckboxes.length > 0) {
+                                    const leadIds = [];
+                                    selectedCheckboxes.forEach((checkbox, index) => {
+                                        // ✅ Yöntem 1: Checkbox'un value attribute'u
+                                        let leadId = checkbox.value;
+                                        
+                                        // ✅ Yöntem 2: Checkbox'un data attribute'ları
+                                        if (!leadId || leadId.length < 10) {
+                                            leadId = checkbox.getAttribute('data-id') || 
+                                                    checkbox.getAttribute('data-record-id') || 
+                                                    checkbox.getAttribute('data-entity-id') ||
+                                                    checkbox.getAttribute('id');
+                                        }
+                                        
+                                        // ✅ Yöntem 3: Checkbox'un parent elementinden al
+                                        if (!leadId || leadId.length < 10) {
+                                            const parent = checkbox.closest('tr, div[data-id], div[data-record-id], li[data-id]');
+                                            if (parent) {
+                                                leadId = parent.getAttribute('data-id') || 
+                                                        parent.getAttribute('data-record-id') ||
+                                                        parent.getAttribute('id') ||
+                                                        parent.getAttribute('data-entity-id');
+                                            }
+                                        }
+                                        
+                                        // ✅ Yöntem 4: Checkbox'un yakınındaki link'ten al (Zoho CRM'de lead link'leri genelde ID içerir)
+                                        if (!leadId || leadId.length < 10) {
+                                            const nearbyLink = checkbox.closest('tr, div, li')?.querySelector('a[href*="/Leads/"]');
+                                            if (nearbyLink) {
+                                                const hrefMatch = nearbyLink.href.match(/\/Leads\/(\d+)/);
+                                                if (hrefMatch && hrefMatch[1]) {
+                                                    leadId = hrefMatch[1];
+                                                }
+                                            }
+                                        }
+                                        
+                                        // ✅ Yöntem 5: Checkbox'un yakınındaki span veya div'den al (Zoho CRM bazen ID'yi buraya koyar)
+                                        if (!leadId || leadId.length < 10) {
+                                            const nearbyElements = checkbox.closest('tr, div, li')?.querySelectorAll('[data-id], [data-record-id], [id*="lead"], [id*="record"]');
+                                            if (nearbyElements && nearbyElements.length > 0) {
+                                                for (const el of nearbyElements) {
+                                                    const id = el.getAttribute('data-id') || el.getAttribute('data-record-id') || el.id;
+                                                    if (id && id.length >= 10 && !id.includes('select-all') && !id.includes('selectAll')) {
+                                                        leadId = id;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        // ✅ Filtrele: Geçerli bir lead ID olmalı
+                                        if (leadId && leadId.toString().length >= 10 && 
+                                            !leadId.toString().includes('select-all') && 
+                                            !leadId.toString().includes('selectAll') &&
+                                            !leadId.toString().includes('header') &&
+                                            !leadId.toString().includes('footer')) {
+                                            leadIds.push(leadId.toString());
+                                            console.log(`✅ Checkbox ${index + 1} lead ID bulundu:`, leadId, {
+                                                checkboxValue: checkbox.value,
+                                                checkboxId: checkbox.id,
+                                                parentDataId: checkbox.closest('tr, div, li')?.getAttribute('data-id')
+                                            });
+                                        } else {
+                                            console.log(`⚠️ Checkbox ${index + 1} için geçerli lead ID bulunamadı:`, {
+                                                leadId,
+                                                checkboxValue: checkbox.value,
+                                                checkboxId: checkbox.id
+                                            });
+                                        }
+                                    });
+                                    
+                                    if (leadIds.length > 0) {
+                                        console.log('✅✅✅✅✅✅✅ DOM\'dan alınan lead ID\'leri:', leadIds);
+                                        return leadIds;
+                                    } else {
+                                        console.warn('⚠️ Seçili checkbox\'lar var ama lead ID çıkarılamadı');
+                                    }
+                                } else {
+                                    console.log('ℹ️ Parent window\'da seçili checkbox bulunamadı');
+                                }
+                            }
+                        } catch (parentError) {
+                            console.warn('⚠️ Parent window\'a erişilemedi (CORS veya iframe sorunu olabilir):', parentError.message);
+                        }
+                    }
+                    
+                    // ✅ SONRA: Kendi window'umuzda da kontrol et (eğer widget içindeysek)
+                    try {
+                        const currentCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+                        console.log('🔍 Kendi window\'umuzda seçili checkbox\'lar:', currentCheckboxes.length);
+                        
+                        if (currentCheckboxes.length > 0) {
+                            const leadIds = [];
+                            currentCheckboxes.forEach((checkbox, index) => {
+                                let leadId = checkbox.value || 
+                                            checkbox.getAttribute('data-id') || 
+                                            checkbox.getAttribute('data-record-id') ||
+                                            checkbox.closest('tr, div, li')?.getAttribute('data-id');
+                                
+                                if (leadId && leadId.toString().length >= 10 && 
+                                    !leadId.toString().includes('select-all') && 
+                                    !leadId.toString().includes('selectAll')) {
+                                    leadIds.push(leadId.toString());
+                                    console.log(`✅ Kendi window checkbox ${index + 1} lead ID:`, leadId);
+                                }
+                            });
+                            
+                            if (leadIds.length > 0) {
+                                console.log('✅✅✅✅✅✅✅ Kendi window\'dan alınan lead ID\'leri:', leadIds);
+                                return leadIds;
+                            }
+                        }
+                    } catch (currentError) {
+                        console.warn('⚠️ Kendi window\'da checkbox\'lar kontrol edilemedi:', currentError.message);
+                    }
+                } catch (domError) {
+                    console.warn('⚠️ DOM\'dan checkbox\'lar alınamadı:', domError);
+                }
+                
+                // ✅ Yöntem 1: getSelectedRecords() (widget içinde çalışır - EN ÖNCELİKLİ)
+                console.log('🔍 getSelectedRecords() kontrol ediliyor...', {
+                    hasZOHO: typeof ZOHO !== 'undefined',
+                    hasCRM: typeof ZOHO?.CRM !== 'undefined',
+                    hasUI: typeof ZOHO?.CRM?.UI !== 'undefined',
+                    hasGetSelectedRecords: typeof ZOHO?.CRM?.UI?.getSelectedRecords === 'function'
+                });
+                
+                if (ZOHO.CRM && ZOHO.CRM.UI && typeof ZOHO.CRM.UI.getSelectedRecords === 'function') {
+                    try {
+                        console.log('✅✅✅ getSelectedRecords() fonksiyonu bulundu, çağrılıyor...');
+                        
+                        // ✅ ÖNCE: getPageInfo() ile seçili kayıtları kontrol et
+                        let pageInfo = null;
+                        if (typeof ZOHO.CRM.UI.getPageInfo === 'function') {
+                            try {
+                                pageInfo = await ZOHO.CRM.UI.getPageInfo();
+                                console.log('✅✅✅ getPageInfo() sonucu:', pageInfo);
+                                console.log('✅✅✅ getPageInfo() tüm key\'leri:', Object.keys(pageInfo || {}));
+                                
+                                // PageInfo'dan seçili kayıtları çıkar
+                                if (pageInfo && pageInfo.selectedRecords && pageInfo.selectedRecords.length > 0) {
+                                    const leadIds = pageInfo.selectedRecords.map(record => {
+                                        const id = record.id || record.Id || record.ID || record.recordId || record.record_id;
+                                        return id ? id.toString() : null;
+                                    }).filter(id => id && id.length >= 10);
+                                    
+                                    if (leadIds.length > 0) {
+                                        console.log('✅✅✅✅✅✅✅ getPageInfo() ile alınan lead ID\'leri:', leadIds);
+                                        return leadIds;
+                                    }
+                                }
+                            } catch (pageInfoError) {
+                                console.warn('⚠️ getPageInfo() çalışmadı:', pageInfoError);
+                            }
+                        }
+                        
+                        // ✅ SONRA: Direkt getSelectedRecords() çağır
+                        let selectedRecords = await ZOHO.CRM.UI.getSelectedRecords();
+                        // ✅ Parametreli dene (bazı CRM sürümleri module/entity ister)
+                        if (!selectedRecords || (Array.isArray(selectedRecords) && selectedRecords.length === 0)) {
+                            try {
+                                selectedRecords = await ZOHO.CRM.UI.getSelectedRecords({ Entity: 'Leads' });
+                            } catch (e) {}
+                        }
+                        if (!selectedRecords || (Array.isArray(selectedRecords) && selectedRecords.length === 0)) {
+                            try {
+                                selectedRecords = await ZOHO.CRM.UI.getSelectedRecords({ entity: 'Leads' });
+                            } catch (e) {}
+                        }
+                        if (!selectedRecords || (Array.isArray(selectedRecords) && selectedRecords.length === 0)) {
+                            try {
+                                selectedRecords = await ZOHO.CRM.UI.getSelectedRecords({ module: 'Leads' });
+                            } catch (e) {}
+                        }
+                        console.log('✅✅✅ getSelectedRecords() çağrısı tamamlandı!');
+                        console.log('✅✅✅ Zoho CRM\'den seçili kayıtlar (getSelectedRecords):', selectedRecords);
+                        console.log('✅✅✅ Seçili kayıt sayısı:', selectedRecords?.length || 0);
+                        console.log('✅✅✅ Seçili kayıt tipi:', typeof selectedRecords);
+                        console.log('✅✅✅ Seçili kayıt Array mi?', Array.isArray(selectedRecords));
+                        console.log('✅✅✅ Seçili kayıt tam içeriği:', JSON.stringify(selectedRecords, null, 2));
+                        
+                        if (selectedRecords) {
+                            // ✅ Eğer array değilse, array'e çevir / data alanını kullan
+                            const recordsArray = Array.isArray(selectedRecords)
+                                ? selectedRecords
+                                : (Array.isArray(selectedRecords.data) ? selectedRecords.data
+                                : (Array.isArray(selectedRecords.records) ? selectedRecords.records
+                                : (Array.isArray(selectedRecords.selectedRecords) ? selectedRecords.selectedRecords
+                                : [selectedRecords])));
+                            console.log('✅ Records array:', recordsArray);
+                            
+                            if (recordsArray.length > 0) {
+                                // ✅ İlk record'un tüm key'lerini logla
+                                console.log('✅ İlk record\'un tüm key\'leri:', Object.keys(recordsArray[0]));
+                                console.log('✅ İlk record tam içeriği:', JSON.stringify(recordsArray[0], null, 2));
+                                
+                                const leadIds = recordsArray.map((record, index) => {
+                                    // ✅ Tüm olası ID alanlarını kontrol et
+                                    const id = record.id || record.Id || record.ID || record.recordId || record.record_id || 
+                                              record.entity_id || record.entityId || record.EntityId || 
+                                              record.lead_id || record.leadId || record.LeadId ||
+                                              record.entityId || record.EntityId ||
+                                              (record.entity_details && record.entity_details.id) ||
+                                              (record.Entity && record.Entity.id);
+                                    const idStr = id ? id.toString() : null;
+                                    console.log(`🔍 Record ${index + 1} ID çıkarılıyor:`, { 
+                                        recordKeys: Object.keys(record),
+                                        idStr,
+                                        fullRecord: record
+                                    });
+                                    return idStr;
+                                }).filter(id => id && id.length >= 10);
+                                
+                                console.log('✅ Filtrelenmiş lead ID\'leri:', leadIds);
+                                
+                                if (leadIds.length > 0) {
+                                    console.log('✅✅✅ Zoho CRM\'den alınan lead ID\'leri:', leadIds);
+                                    return leadIds;
+                                } else {
+                                    console.warn('⚠️ Seçili kayıtlar var ama ID çıkarılamadı. Tüm record\'lar:', recordsArray);
+                                }
+                            } else {
+                                console.log('ℹ️ getSelectedRecords() boş array döndü (seçili kayıt yok)');
+                            }
+                        } else {
+                            console.log('ℹ️ getSelectedRecords() null/undefined döndü (seçili kayıt yok)');
+                        }
+                    } catch (getSelectedError) {
+                        console.warn('⚠️ getSelectedRecords() çalışmadı:', getSelectedError);
+                        console.warn('⚠️ Hata detayları:', getSelectedError.message, getSelectedError.stack);
+                    }
+                }
+                
+                // ✅ Yöntem 2: ZOHO.CRM.API.getRecords() ile seçili kayıtları al (COQL Query kullanarak)
+                if (ZOHO.CRM && ZOHO.CRM.API && typeof ZOHO.CRM.API.getRecords === 'function') {
+                    try {
+                        console.log('🔍 ZOHO.CRM.API.getRecords() deneniyor...');
+                        
+                        // ✅ Önce getSelectedRecords() ile ID'leri al (eğer varsa)
+                        let selectedIds = [];
+                        if (ZOHO.CRM.UI && typeof ZOHO.CRM.UI.getSelectedRecords === 'function') {
+                            try {
+                                const selectedRecords = await ZOHO.CRM.UI.getSelectedRecords();
+                                if (selectedRecords && selectedRecords.length > 0) {
+                                    selectedIds = selectedRecords.map(r => r.id || r.Id || r.ID || r.recordId).filter(Boolean);
+                                    console.log('✅ getSelectedRecords() ile ID\'ler alındı:', selectedIds);
+                                }
+                            } catch (e) {
+                                console.warn('⚠️ getSelectedRecords() çalışmadı:', e);
+                            }
+                        }
+                        
+                        // ✅ Eğer ID'ler varsa, COQL Query ile telefon numaralarını çek
+                        if (selectedIds.length > 0) {
+                            const idsString = selectedIds.map(id => `'${id}'`).join(',');
+                            const coqlQuery = `SELECT id, First_Name, Last_Name, Full_Name, Phone, Mobile, Secondary_Phone, Email FROM Leads WHERE id IN (${idsString})`;
+                            
+                            console.log('🔍 COQL Query ile seçili lead\'ler çekiliyor:', coqlQuery);
+                            
+                            const apiResponse = await ZOHO.CRM.API.getRecords({
+                                Entity: 'Leads',
+                                select_query: coqlQuery
+                            });
+                            
+                            console.log('✅ COQL Query sonucu:', apiResponse);
+                            
+                            if (apiResponse && apiResponse.data && apiResponse.data.length > 0) {
+                                const leadIds = apiResponse.data.map(lead => lead.id).filter(id => id && id.length >= 10);
+                                if (leadIds.length > 0) {
+                                    console.log('✅✅✅ COQL Query ile alınan lead ID\'leri:', leadIds);
+                                    return leadIds;
+                                }
+                            }
+                        }
+                    } catch (apiError) {
+                        console.warn('⚠️ ZOHO.CRM.API.getRecords() çalışmadı:', apiError);
+                    }
+                }
+                
+                // ✅ Yöntem 3: getPageInfo() ile seçili kayıtları al
+                if (ZOHO.CRM && ZOHO.CRM.UI && typeof ZOHO.CRM.UI.getPageInfo === 'function') {
+                    try {
+                        console.log('🔍 getPageInfo() deneniyor...');
+                        const pageInfo = await ZOHO.CRM.UI.getPageInfo();
+                        console.log('✅ Zoho CRM PageInfo:', pageInfo);
+                        console.log('✅ PageInfo tüm key\'leri:', Object.keys(pageInfo || {}));
+                        
+                        // PageInfo'dan seçili kayıtları çıkar
+                        if (pageInfo && pageInfo.selectedRecords && pageInfo.selectedRecords.length > 0) {
+                            const leadIds = pageInfo.selectedRecords.map(record => {
+                                const id = record.id || record.Id || record.ID || record.recordId || record.record_id;
+                                return id ? id.toString() : null;
+                            }).filter(id => id && id.length >= 10);
+                            
+                            if (leadIds.length > 0) {
+                                console.log('✅✅✅ PageInfo\'dan alınan lead ID\'leri:', leadIds);
+                                return leadIds;
+                            }
+                        } else {
+                            console.log('ℹ️ PageInfo\'da selectedRecords yok. PageInfo içeriği:', JSON.stringify(pageInfo, null, 2));
+                        }
+                    } catch (pageInfoError) {
+                        console.warn('⚠️ getPageInfo() çalışmadı:', pageInfoError);
+                    }
+                }
+                
+                // ✅ Yöntem 3: Parent window'dan postMessage ile al (iframe içindeyse)
+                try {
+                    if (window.parent && window.parent !== window) {
+                        console.log('🔍 Parent window\'a postMessage gönderiliyor...');
+                        window.parent.postMessage({ type: 'GET_SELECTED_LEADS' }, '*');
+                        
+                        // PostMessage response'u bekle
+                        return new Promise((resolve) => {
+                            const timeout = setTimeout(() => {
+                                console.warn('⚠️ PostMessage timeout (5 saniye)');
+                                resolve(null);
+                            }, 5000);
+                            
+                            const messageHandler = (event) => {
+                                if (event.data && event.data.type === 'SELECTED_LEADS' && event.data.leadIds) {
+                                    clearTimeout(timeout);
+                                    window.removeEventListener('message', messageHandler);
+                                    const leadIds = event.data.leadIds.filter(id => id && id.toString().length >= 10);
+                                    if (leadIds.length > 0) {
+                                        console.log('✅✅✅ PostMessage\'dan alınan lead ID\'leri:', leadIds);
+                                        resolve(leadIds);
+                                    } else {
+                                        resolve(null);
+                                    }
+                                }
+                            };
+                            
+                            window.addEventListener('message', messageHandler);
+                        });
+                    }
+                } catch (postMessageError) {
+                    console.warn('⚠️ PostMessage çalışmadı:', postMessageError);
+                }
+                
+                // ✅ Yöntem 5: URL'den referrer'dan al (son çare)
+                try {
+                    const referrer = document.referrer;
+                    console.log('🔍 Referrer URL:', referrer);
+                    
+                    if (referrer && referrer.includes('zoho.com/crm')) {
+                        const referrerUrl = new URL(referrer);
+                        const recordIds = referrerUrl.searchParams.get('ids') || referrerUrl.searchParams.get('recordIds') || referrerUrl.searchParams.get('selectedIds');
+                        if (recordIds && recordIds !== '$recordIds') {
+                            const ids = recordIds.split(',').map(id => id.trim()).filter(id => id && id.length >= 10);
+                            if (ids.length > 0) {
+                                console.log('✅ Referrer\'dan alınan lead ID\'leri:', ids);
+                                return ids;
+                            }
+                        }
+                    }
+                } catch (referrerError) {
+                    console.warn('⚠️ Referrer\'dan alınamadı:', referrerError);
+                }
+                
+                console.warn('⚠️ Zoho CRM\'de seçili kayıt bulunamadı (tüm yöntemler denendi)');
+                return null;
+            } catch (error) {
+                console.error('❌ Zoho CRM API hatası:', error);
+                return null;
+            }
+        }
+
+        // Initialize
+        // ✅ Sadece seçili lead'lerin detaylarını çek
+        async function fetchSelectedLeadsDetails(leadIds) {
+            if (!leadIds || leadIds.length === 0) {
+                return [];
+            }
+            
+            try {
+                const leadIdsParam = leadIds.join(',');
+                // ✅ YENİ ENDPOINT: COQL Query ile kesin çözüm
+                const url = `/api/zoho/selected-leads?leadIds=${encodeURIComponent(leadIdsParam)}`;
+                console.log('✅✅✅ COQL Query ile seçili lead\'lerin telefon numaraları çekiliyor...', { url, leadIds });
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅✅✅ COQL Query ile seçili lead\'lerin telefon numaraları çekildi:', { 
+                    count: data.leads?.length || 0,
+                    withPhones: data.withPhones || 0,
+                    method: data.method || 'unknown'
+                });
+                
+                if (data.leads && data.leads.length > 0) {
+                    // ✅ Telefon numaralarını kontrol et
+                    const leadsWithPhones = data.leads.filter(lead => {
+                        const hasPhone = lead.Phone || lead.Mobile || lead.Secondary_Phone || 
+                                       lead.phone || lead.mobile || lead.secondary_phone;
+                        return hasPhone;
+                    });
+                    
+                    console.log('✅✅✅ Telefon numarası olan lead\'ler:', leadsWithPhones.length, 'toplam:', data.leads.length);
+                    
+                    if (leadsWithPhones.length === 0) {
+                        console.warn('⚠️ Seçili lead\'lerde telefon numarası yok!');
+                    }
+                }
+                
+                return data.leads || [];
+            } catch (error) {
+                console.error('❌ Seçili lead\'lerin detayları çekilemedi:', error);
+                throw error;
+            }
+        }
+
+        async function init() {
+            console.log('🚀 Bulk message sayfası başlatılıyor...');
+            
+            // Templates modal'ı kur
+            setupTemplatesModal();
+            
+            // Template'leri yükle (paralel olarak - modal açıldığında tekrar yüklenecek)
+            loadTemplates().catch(err => {
+                console.error('Template yükleme hatası:', err);
+            });
+
+            // ✅ Zoho PageLoad dinleyicisini kur (seçili kayıtlar için)
+            setupZohoPageLoadListener();
+            
+            // ✅ 1. ADIM: ÖNCE SEÇİLİ LEAD'LERİ KONTROL ET
+            let hasSelectedLeads = false;
+            
+            // ✅ 0. ADIM: URL'den gelen seçili lead ID'lerini önce kullan
+            const urlLeadIds = getLeadIdsFromUrl();
+            if (urlLeadIds && urlLeadIds.length > 0) {
+                // UI bozulmasın diye sadece seçimi önceden işaretle
+                urlLeadIds.forEach(id => selectedLeadIds.add(id));
+                console.log('✅ URL\'den lead ID bulundu, önceden seçildi:', urlLeadIds);
+
+                // Hızlı dolması için detayları çekip recipients oluşturmayı dene
+                console.log('✅ URL lead ID detayları çekiliyor...', urlLeadIds);
+                try {
+                    const leadsFromUrl = await fetchSelectedLeadsDetails(urlLeadIds);
+                    if (leadsFromUrl && leadsFromUrl.length > 0) {
+                        const leadsWithPhones = leadsFromUrl.filter(lead => {
+                            const phone = lead.Phone || lead.Mobile || lead.Secondary_Phone || 
+                                         lead.phone || lead.mobile || lead.secondary_phone;
+                            return phone && phone.trim().length > 0;
+                        });
+                        
+                        console.log('✅✅✅ URL ile gelen seçili lead\'lerde telefon numarası olanlar:', leadsWithPhones.length);
+                        if (leadsWithPhones.length > 0) {
+                            // ✅ Recipients oluştur (SADECE URL ile gelen seçili lead'ler)
+                            buildRecipients(leadsWithPhones);
+                            hasSelectedLeads = true; // ✅ URL'den lead'ler geldi
+                        } else {
+                            console.warn('⚠️ URL ile gelen seçili lead\'lerde telefon numarası yok, fallback devreye giriyor');
+                        }
+                    } else {
+                        console.warn('⚠️ URL ile gelen lead detayları boş döndü, fallback devreye giriyor');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ URL ile lead detayları çekilemedi, fallback devreye giriyor:', error);
+                }
+            }
+            
+            // ✅ 2. ADIM: PageLoad'tan ID'ler gelmişse onları kullan (sonsuz döngüyü önle)
+            if (pageLoadSelectedIds && pageLoadSelectedIds.length > 0) {
+                console.log('✅✅✅ PageLoad\'tan ID\'ler var, backend API\'den telefon numaraları çekiliyor...', pageLoadSelectedIds);
+                try {
+                    const leadsWithPhones = await fetchSelectedLeadsDetails(pageLoadSelectedIds);
+                    if (leadsWithPhones && leadsWithPhones.length > 0) {
+                        console.log('✅✅✅✅✅ PageLoad ID\'lerinden telefon numaraları çekildi:', leadsWithPhones.length);
+                        
+                        leadsWithPhones.forEach(lead => {
+                            const leadId = getLeadId(lead);
+                            if (leadId) {
+                                selectedLeadIds.add(leadId);
+                            }
+                        });
+                        
+                        buildRecipients(leadsWithPhones);
+                        hasSelectedLeads = true;
+                    }
+                } catch (error) {
+                    console.warn('⚠️ PageLoad ID\'lerinden telefon numaraları çekilemedi:', error);
+                }
+            }
+            
+            // ✅ 3. ADIM: ZOHO CRM'DEN SEÇİLİ LEAD'LERİN TELEFON NUMARALARINI DİREKT AL (sadece 1 deneme - sonsuz döngüyü önle)
+            let selectedLeadsWithPhones = await getSelectedLeadsPhonesFromZoho();
+            
+            // ✅ 4. ADIM: EĞER SEÇİLİ LEAD'LER VARSA, DİREKT RECIPIENTS'A EKLE!
+            if (selectedLeadsWithPhones && selectedLeadsWithPhones.length > 0) {
+                console.log('✅✅✅✅✅ Seçili lead\'ler bulundu, direkt recipients\'a ekleniyor...', selectedLeadsWithPhones);
+                
+                selectedLeadsWithPhones.forEach(lead => {
+                    if (lead.id) {
+                        selectedLeadIds.add(lead.id);
+                    }
+                });
+                
+                buildRecipients(selectedLeadsWithPhones);
+                renderRecipients();
+                console.log('✅✅✅✅✅ Seçili lead\'ler direkt recipients\'a eklendi!');
+                hasSelectedLeads = true;
+            }
+            
+            // ✅ 5. ADIM: SEÇİLİ LEAD'LER VARSA RECIPIENTS'I RENDER ET
+            if (hasSelectedLeads && recipients.length > 0) {
+                renderRecipients();
+            }
+        }
+
+        // Sayfa yüklendiğinde
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <!-- Templates Modal -->
+    <div id="templatesModal" class="templates-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto;">
+        <div class="templates-modal-content" style="position: relative; background: white; margin: 50px auto; max-width: 1200px; border-radius: 12px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin: 0; font-size: 24px; font-weight: 600;">Templates</h2>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <input type="text" id="templateSearch" placeholder="🔍 Search templates..." style="padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; width: 250px;">
+                    <button class="btn btn-icon" id="closeTemplatesModal" style="padding: 8px; font-size: 20px; background: transparent; border: none; cursor: pointer; color: #1e40af;">✕</button>
+                </div>
+            </div>
+            <div id="templatesList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                <!-- Templates will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Parameters Modal -->
+    <div id="templateParametersModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 12000; overflow-y: auto;">
+        <div style="position: relative; background: white; margin: 50px auto; max-width: 800px; border-radius: 12px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin: 0; font-size: 24px; font-weight: 600;">Template Parametreleri</h2>
+                <button class="btn btn-icon" onclick="closeTemplateParametersModal()" style="padding: 8px; font-size: 20px; background: transparent; border: none; cursor: pointer; color: #1e40af;">✕</button>
+            </div>
+            <div id="templateParametersContent">
+                <!-- Template parametreleri buraya eklenecek -->
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                <button onclick="closeTemplateParametersModal()" style="padding: 10px 20px; background: #e5e7eb; color: #333; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">İptal</button>
+                <button onclick="sendBulkMessageWithTemplateParams()" style="padding: 10px 20px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">Gönder</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
