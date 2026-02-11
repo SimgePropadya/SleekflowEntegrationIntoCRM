@@ -490,9 +490,19 @@
                 // Widget Render.com'da çalışıyorsa, relative path kullan
                 const backendUrl = '/api/zoho/lead-info';
                 const widgetUrl = window.location.href || '';
+                const referrerParam = document.referrer || '';
+                let parentHref = '';
+                try {
+                    if (window.parent && window.parent !== window) {
+                        parentHref = window.parent.location?.href || '';
+                    }
+                } catch (e) {
+                    // CORS hatası normal
+                }
                 
-                // Backend'e widget URL'yi gönder (referrer header otomatik gönderilir)
-                fetch(backendUrl + '?widgetUrl=' + encodeURIComponent(widgetUrl))
+                // Backend'e widget URL ve referrer bilgilerini gönder
+                const backendQuery = `?widgetUrl=${encodeURIComponent(widgetUrl)}&referrer=${encodeURIComponent(referrerParam)}&parentUrl=${encodeURIComponent(parentHref)}`;
+                fetch(backendUrl + backendQuery)
                     .then(res => {
                         if (!res.ok && res.status === 400) {
                             // 400 hatası = Lead ID bulunamadı, bu normal (tüm konuşmaları göster)
@@ -540,7 +550,16 @@
             
             // Get lead info from backend (Zoho access token already configured)
             // Relative path kullan - widget nerede çalışıyorsa oradan istek at
-            const apiUrl = `/api/zoho/lead-info?id=` + encodeURIComponent(leadId);
+            const referrerParam = document.referrer || '';
+            let parentHref = '';
+            try {
+                if (window.parent && window.parent !== window) {
+                    parentHref = window.parent.location?.href || '';
+                }
+            } catch (e) {
+                // CORS hatası normal
+            }
+            const apiUrl = `/api/zoho/lead-info?id=${encodeURIComponent(leadId)}&referrer=${encodeURIComponent(referrerParam)}&parentUrl=${encodeURIComponent(parentHref)}`;
             console.log('📡📡📡 FETCHING FROM BACKEND:', apiUrl);
             
             return fetch(apiUrl)

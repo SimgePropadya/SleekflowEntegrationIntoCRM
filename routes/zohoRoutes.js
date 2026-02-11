@@ -12,19 +12,26 @@ const { isValidLeadId } = require('../utils/validation');
  * Lead bilgilerini getir
  */
 router.get('/lead-info', asyncHandler(async (req, res, next) => {
-    const { id, widgetUrl } = req.query;
+    const { id, widgetUrl, referrer: referrerQuery, parentUrl } = req.query;
     
     let leadId = id;
     
     // Eğer ID yoksa, referrer ve widgetUrl'den çıkar (AGRESİF PARSİNG)
     if (!leadId || !isValidLeadId(leadId)) {
-        const referrer = req.get('referer') || req.get('referrer') || '';
-        const allUrls = [referrer, widgetUrl || '', req.headers['x-forwarded-url'] || ''].filter(Boolean).join(' ');
+        const headerReferer = req.get('referer') || req.get('referrer') || '';
+        const referrer = referrerQuery || headerReferer || '';
+        const allUrls = [
+            referrer,
+            widgetUrl || '',
+            parentUrl || '',
+            req.headers['x-forwarded-url'] || ''
+        ].filter(Boolean).join(' ');
         
         logger.info('Lead ID aranıyor', { 
             hasId: !!id, 
             hasWidgetUrl: !!widgetUrl, 
             hasReferrer: !!referrer,
+            hasParentUrl: !!parentUrl,
             allUrlsLength: allUrls.length 
         });
         
