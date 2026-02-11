@@ -2888,6 +2888,17 @@
             window.conversationsState.allConversations = conversations;
             window.conversationsState.showAll = showAll;
             
+            // ✅ Yardımcı fonksiyonlar - telefon normalize et
+            const cleanPhone = (phone) => {
+                return String(phone || '').replace(/\+/g, '').replace(/\s/g, '').replace(/-/g, '').replace(/\(/g, '').replace(/\)/g, '').trim();
+            };
+            
+            const normalizePhoneForMatch = (phone) => {
+                const digits = cleanPhone(phone);
+                if (!digits) return '';
+                return digits.length > 10 ? digits.slice(-10) : digits;
+            };
+            
             // ✅ KANAL FİLTRELEME
             const channelFilter = document.getElementById('channelFilter');
             const channelFilterTop = document.getElementById('channelFilterTop');
@@ -2910,10 +2921,6 @@
             
             // ✅ KRITIK: Sender seçildiyse, sender'a göre farklı filtreleme mantığı uygula
             if (selectedSenderPhone && selectedSenderPhone !== '') {
-                const cleanPhone = (phone) => {
-                    return String(phone || '').replace(/\+/g, '').replace(/\s/g, '').replace(/-/g, '').replace(/\(/g, '').replace(/\)/g, '').trim();
-                };
-                
                 const cleanSelectedPhone = cleanPhone(selectedSenderPhone);
                 const clen = conversations.length;
                 
@@ -2999,11 +3006,40 @@
             
             // ✅ FULL_NAME'E GÖRE FİLTRELEME
             const leadName = window.leadName || '';
+            const leadPhoneForMatch = normalizePhoneForMatch(window.leadPhone || window.leadPhoneNumber || '');
             let filteredConversations = filteredByChannel;
             
             if (!showAll && leadName && leadName.trim() !== '') {
                 filteredConversations = filteredByChannel.filter(conv => {
-                    return matchNames(leadName, conv.contactName || '');
+                    const contactName = (conv.contactName || '').trim();
+                    if (contactName && !/^(bilinmeyen|unknown)$/i.test(contactName)) {
+                        return matchNames(leadName, contactName);
+                    }
+                    
+                    if (leadPhoneForMatch) {
+                        const phoneCandidates = [
+                            conv.phoneNumber,
+                            conv.customerPhone,
+                            conv.toPhone,
+                            conv.fromPhone,
+                            conv.rawPhoneNumber,
+                            conv._rawConversation?.userProfile?.phoneNumber,
+                            conv._rawConversation?.userProfile?.phone,
+                            conv._rawConversation?.customer?.phoneNumber,
+                            conv._rawConversation?.customer?.phone,
+                            conv._rawConversation?.whatsappCloudApiReceiver?.phoneNumber,
+                            conv._rawConversation?.whatsappCloudApiReceiver?.whatsappChannelPhoneNumber
+                        ];
+                        
+                        for (const candidate of phoneCandidates) {
+                            const normalized = normalizePhoneForMatch(candidate);
+                            if (normalized && normalized === leadPhoneForMatch) {
+                                return true;
+                            }
+                        }
+                    }
+                    
+                    return false;
                 });
             }
             

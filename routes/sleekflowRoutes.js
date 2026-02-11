@@ -490,7 +490,38 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
             const up = c.userProfile || {};
             const fn = up.firstName || '';
             const ln = up.lastName || '';
-            const contactName = (fn + ' ' + ln).trim() || 'Bilinmeyen';
+            
+            // ✅ İsim için tüm olası field'ları sırayla dene
+            const nameCandidates = [
+                `${fn} ${ln}`.trim(),
+                up.fullName,
+                up.displayName,
+                up.name,
+                up.nickname,
+                up.profileName,
+                up.whatsappName,
+                c.contactName,
+                c.customerName,
+                c.customer?.name,
+                c.customer?.fullName,
+                c.receiverName,
+                c.participantName,
+                c.conversationName,
+                c.conversationTitle,
+                c.title,
+                c.name,
+                c.profileName,
+                c.whatsappProfileName,
+                c.facebookProfileName,
+                c.instagramProfileName,
+                c.lastMessage?.customerName,
+                c.lastMessage?.contactName,
+                c.lastMessage?.senderName
+            ];
+            
+            const contactName = nameCandidates
+                .map(value => (typeof value === 'string' ? value.trim() : ''))
+                .find(value => value && !/^(unknown|bilinmeyen)$/i.test(value)) || 'Bilinmeyen';
             
             // ✅ ULTRA HIZLI CHANNEL - Sadece ilk channel'ı kontrol et
             const ch = (c.lastMessageChannel || '').toLowerCase();
