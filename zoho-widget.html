@@ -235,6 +235,9 @@
 
     <!-- BASIC: Get Lead Name from Referrer -->
     <script>
+        let zohoInitPromise = null;
+        let leadContextPromise = null;
+
         // Zoho EmbeddedApp SDK üzerinden recordId alma (PageLoad event)
         function initZohoEmbeddedApp() {
             if (!window.ZOHO || !ZOHO.embeddedApp) {
@@ -253,18 +256,262 @@
                         window.leadEmail = null;
                     }
                     console.log('✅ Lead ID via PageLoad:', rid);
-                    fetchLeadData(rid);
+                    loadLeadContext({ forceReload: true, preferredId: rid, source: 'PageLoad' });
                 } else {
                     console.log('⚠️ PageLoad event geldi ama recordId yok:', data);
                 }
             });
 
-            ZOHO.embeddedApp.init();
-            console.log('🔄 ZOHO.embeddedApp init çağrıldı');
+            if (!zohoInitPromise) {
+                zohoInitPromise = ZOHO.embeddedApp.init()
+                    .then(() => {
+                        console.log('🔄 ZOHO.embeddedApp init tamamlandı');
+                        return true;
+                    })
+                    .catch(err => {
+                        console.warn('⚠️ ZOHO.embeddedApp init hatası:', err?.message || err);
+                        return false;
+                    });
+            } else {
+                console.log('ℹ️ ZOHO.embeddedApp init daha önce başlatılmış');
+            }
+        }
+
+        async function ensureZohoInitialized() {
+            if (!window.ZOHO || !window.ZOHO.embeddedApp) {
+                return false;
+            }
+            if (!zohoInitPromise) {
+                zohoInitPromise = window.ZOHO.embeddedApp.init()
+                    .then(() => {
+                        console.log('🔄 ZOHO.embeddedApp init tamamlandı (ensure)');
+                        return true;
+                    })
+                    .catch(err => {
+                        console.warn('⚠️ ZOHO.embeddedApp init hatası (ensure):', err?.message || err);
+                        return false;
+                    });
+            }
+            return zohoInitPromise;
+        }
+
+        function getWidgetContextInfo() {
+            const widgetUrl = window.location.href || '';
+            const referrer = document.referrer || '';
+            let parentUrl = '';
+            try {
+                if (window.parent && window.parent !== window) {
+                    parentUrl = window.parent.location?.href || '';
+                }
+            } catch (e) {
+                // CORS engeli normal
+            }
+            return { widgetUrl, referrer, parentUrl };
+        }
+
+        function normalizeLeadData(raw, source) {
+            if (!raw) return null;
+
+            let candidate = raw;
+            if (Array.isArray(candidate)) {
+                candidate = candidate[0];
+            }
+
+            if (candidate && typeof candidate === 'object') {
+                if (candidate.data) {
+                    if (Array.isArray(candidate.data)) {
+                        candidate = candidate.data[0] || candidate.data;
+                    } else {
+                        candidate = candidate.data;
+                    }
+                }
+            }
+
+            if (!candidate || typeof candidate !== 'object') {
+                return null;
+            }
+
+            const id = candidate.id ||
+                candidate.RecordId ||
+                candidate.RecordID ||
+                candidate.recordId ||
+                candidate.recordID ||
+                candidate.EntityId ||
+                candidate.entityId;
+
+            if (!id) {
+                return null;
+            }
+
+            const info = {
+                id,
+                source: source || 'sdk',
+                Full_Name: candidate.Full_Name || candidate.full_name || candidate.FullName || candidate.Fullname || '',
+                First_Name: candidate.First_Name || candidate.first_name || candidate.FirstName || '',
+                Last_Name: candidate.Last_Name || candidate.last_name || candidate.LastName || '',
+                Phone: candidate.Phone || candidate.phone || '',
+                Mobile: candidate.Mobile || candidate.mobile || '',
+                Email: candidate.Email || candidate.email || ''
+            };
+
+            return info;
+        }
+
+        async function fetchLeadInfoViaZohoSdk() {
+            const initOk = await ensureZohoInitialized();
+            if (!initOk) {
+                console.log('⚠️ Zoho SDK init olmadı, SDK zinciri atlanıyor');
+                return null;
+            }
+
+            const attempts = [
+                {
+                    name: 'ZOHO.CRM.UI.getRecord',
+                    fn: () => window.ZOHO?.CRM?.UI?.getRecord?.()
+                },
+                {
+                    name: 'ZOHO.CRM.UI.getFormInfo',
+                    fn: () => window.ZOHO?.CRM?.UI?.getFormInfo?.()
+                },
+                {
+                    name: 'ZOHO.CRM.UI.getPageInfo',
+                    fn: () => window.ZOHO?.CRM?.UI?.getPageInfo?.()
+                },
+                {
+                    name: 'ZOHO.CRM.API.getRecord(current)',
+                    fn: () => window.ZOHO?.CRM?.API?.getRecord ? window.ZOHO.CRM.API.getRecord({ Entity: "Leads", RecordID: "current" }) : undefined
+                }
+            ];
+
+            for (const attempt of attempts) {
+                if (typeof attempt.fn !== 'function') {
+                    continue;
+                }
+                try {
+                    const response = await attempt.fn();
+                    const info = normalizeLeadData(response, attempt.name);
+                    if (info && info.id) {
+                        console.log(`✅ SDK lead bilgisi bulundu (${attempt.name}):`, info.id);
+                        return info;
+                    }
+                } catch (sdkError) {
+                    console.warn(`⚠️ ${attempt.name} çağrısı başarısız:`, sdkError?.message || sdkError);
+                }
+            }
+
+            return null;
+        }
+
+        function resolveLeadIdFromUrls(preferredId) {
+            if (preferredId && /^\d{10,}$/.test(preferredId)) {
+                return preferredId;
+            }
+
+            const { widgetUrl, referrer, parentUrl } = getWidgetContextInfo();
+            const sources = [preferredId, widgetUrl, referrer, parentUrl].filter(Boolean).join(' ');
+
+            const patterns = [
+                /\/tab\/Leads\/(\d{10,})/,
+                /\/crm\/[^\/]+\/tab\/Leads\/(\d{10,})/,
+                /\/Leads\/(\d{10,})/,
+                /(\d{15,})/
+            ];
+
+            for (const pattern of patterns) {
+                const match = sources.match(pattern);
+                if (match && match[1]) {
+                    console.log('✅ URL kaynaklarından lead ID bulundu:', match[1]);
+                    return match[1];
+                }
+            }
+
+            return null;
+        }
+
+        async function fetchLeadDataFromBackendContext() {
+            const { widgetUrl, referrer, parentUrl } = getWidgetContextInfo();
+            const backendUrl = `/api/zoho/lead-info?widgetUrl=${encodeURIComponent(widgetUrl)}&referrer=${encodeURIComponent(referrer)}&parentUrl=${encodeURIComponent(parentUrl)}`;
+            try {
+                const response = await fetch(backendUrl);
+                if (!response.ok) {
+                    console.warn('⚠️ Backend context isteği başarısız oldu:', response.status, response.statusText);
+                    return null;
+                }
+                const lead = await response.json();
+                if (lead && lead.id) {
+                    console.log('✅ Backend context üzerinden lead bulundu:', lead.id);
+                    return lead;
+                }
+                return null;
+            } catch (error) {
+                console.warn('⚠️ Backend context isteği hatası:', error?.message || error);
+                return null;
+            }
+        }
+
+        async function loadLeadContext({ forceReload = false, preferredId = null, source = 'manual' } = {}) {
+            if (!forceReload && window.leadId && window.leadName) {
+                return { status: 'cached', id: window.leadId };
+            }
+
+            if (leadContextPromise && !forceReload) {
+                return leadContextPromise;
+            }
+
+            const runner = async () => {
+                console.log('🔍 loadLeadContext başlatıldı', { forceReload, preferredId, source });
+
+                let candidateId = preferredId || window.leadId;
+
+                if (candidateId && (!forceReload || candidateId === window.leadId)) {
+                    await fetchLeadData(candidateId, { source: 'loadLeadContext-cached' });
+                    return { status: 'cached-fetch', id: candidateId };
+                }
+
+                const sdkLead = await fetchLeadInfoViaZohoSdk();
+                if (sdkLead && sdkLead.id) {
+                    const needsBackfill = !sdkLead.Full_Name && !sdkLead.First_Name && !sdkLead.Last_Name;
+                    applyLeadDataFromObject(sdkLead, { source: sdkLead.source || 'zoho-sdk', triggerLoad: !needsBackfill });
+                    if (needsBackfill) {
+                        await fetchLeadData(sdkLead.id, { source: 'sdk-backfill' });
+                    }
+                    return { status: 'sdk', id: sdkLead.id };
+                }
+
+                candidateId = resolveLeadIdFromUrls(preferredId);
+                if (candidateId) {
+                    await fetchLeadData(candidateId, { source: 'url-fallback' });
+                    return { status: 'url', id: candidateId };
+                }
+
+                const backendLead = await fetchLeadDataFromBackendContext();
+                if (backendLead && backendLead.id) {
+                    const needsBackfill = !backendLead.Full_Name && !backendLead.First_Name && !backendLead.Last_Name;
+                    applyLeadDataFromObject(backendLead, { source: 'backend-context', triggerLoad: !needsBackfill });
+                    if (needsBackfill) {
+                        await fetchLeadData(backendLead.id, { source: 'backend-context-backfill' });
+                    }
+                    return { status: 'backend-context', id: backendLead.id };
+                }
+
+                console.warn('⚠️ loadLeadContext lead bilgisi bulamadı');
+                return { status: 'not-found', id: null };
+            };
+
+            if (forceReload) {
+                return runner();
+            }
+
+            leadContextPromise = runner().finally(() => {
+                leadContextPromise = null;
+            });
+
+            return leadContextPromise;
         }
 
         // Get lead ID from referrer and fetch lead name from backend
         function getLeadFromReferrer(forceReload = false) {
+            return loadLeadContext({ forceReload, source: 'legacy-referrer' });
             // If already loaded and not forcing reload, don't reload
             if (!forceReload && window.leadPhone && window.leadPhone !== 'null' && window.leadPhone !== '' && window.leadPhone !== 'undefined') {
                 console.log('✅ Lead phone already loaded:', window.leadPhone);
@@ -539,8 +786,77 @@
             fetchLeadData(leadId);
         }
         
+        function applyLeadDataFromObject(leadInfo = {}, options = {}) {
+            if (!leadInfo || !leadInfo.id) {
+                console.warn('⚠️ applyLeadDataFromObject çağrıldı ancak geçerli lead ID yok');
+                return;
+            }
+
+            const leadName = leadInfo.Full_Name ||
+                leadInfo.full_name ||
+                leadInfo.name ||
+                leadInfo.displayName ||
+                leadInfo.First_Name && leadInfo.Last_Name ? `${leadInfo.First_Name} ${leadInfo.Last_Name}`.trim() : leadInfo.First_Name ||
+                leadInfo.customerName ||
+                leadInfo.contactName ||
+                '';
+
+            const leadPhone = leadInfo.Phone ||
+                leadInfo.Mobile ||
+                leadInfo.phone ||
+                leadInfo.mobile ||
+                leadInfo.customerPhone ||
+                '';
+
+            const leadEmail = leadInfo.Email || leadInfo.email || '';
+
+            window.leadId = leadInfo.id;
+            window.leadName = leadName || '';
+            window.leadPhone = leadPhone || '';
+            window.leadEmail = leadEmail || '';
+
+            if (window.conversationsState) {
+                window.conversationsState.showAll = false;
+                window.conversationsState.filteredConversations = [];
+            }
+            if (window.conversationsStateBySender && typeof window.conversationsStateBySender === 'object') {
+                Object.keys(window.conversationsStateBySender).forEach(senderKey => {
+                    const senderState = window.conversationsStateBySender[senderKey];
+                    if (senderState && typeof senderState === 'object') {
+                        senderState.showAll = false;
+                        senderState.filteredConversations = [];
+                    }
+                });
+            }
+
+            console.log('✅✅✅ Lead bilgisi uygulandı:', {
+                id: window.leadId,
+                name: window.leadName,
+                phone: window.leadPhone,
+                email: window.leadEmail,
+                source: options.source || 'unknown'
+            });
+
+            window.dispatchEvent(new CustomEvent("zohoLeadDataLoaded", {
+                detail: {
+                    id: window.leadId,
+                    Full_Name: window.leadName,
+                    name: window.leadName,
+                    phone: window.leadPhone,
+                    email: window.leadEmail,
+                    source: options.source || null
+                }
+            }));
+
+            if (options.triggerLoad !== false && typeof loadConversations === "function") {
+                setTimeout(() => {
+                    loadConversations(false);
+                }, 150);
+            }
+        }
+
         // Lead verilerini çeken ayrı fonksiyon
-        function fetchLeadData(leadId) {
+        function fetchLeadData(leadId, options = {}) {
             if (!leadId) {
                 console.error('❌ fetchLeadData: leadId gerekli');
                 return;
@@ -575,81 +891,8 @@
                     return res.json();
                 })
                 .then(lead => {
-                    console.log('📥📥📥 BACKEND RESPONSE (FULL):', JSON.stringify(lead, null, 2));
-                    console.log('📥 Backend response keys:', Object.keys(lead || {}));
-                    console.log('📥 Phone fields:', {
-                        'Phone': lead?.Phone,
-                        'Mobile': lead?.Mobile,
-                        'phone': lead?.phone,
-                        'mobile': lead?.mobile
-                    });
-                    
-                    // Get lead name (öncelik: Full_Name > First_Name + Last_Name > Last_Name)
-                    const leadName = lead?.Full_Name || 
-                                   lead?.full_name ||
-                                   (lead?.First_Name && lead?.Last_Name ? `${lead.First_Name} ${lead.Last_Name}`.trim() : '') ||
-                                   lead?.Last_Name ||
-                                   lead?.last_name ||
-                                   lead?.First_Name ||
-                                   lead?.first_name ||
-                                   lead?.name ||
-                                   '';
-                    
-                    // Get lead phone - PHONE IS PRIORITY FOR FILTERING
-                    const leadPhone = lead?.Phone || lead?.Mobile || lead?.phone || lead?.mobile || '';
-                    
-                    // Get lead email
-                    const leadEmail = lead?.Email || lead?.email || '';
-                    
-                    console.log('📋📋📋 EXTRACTED LEAD DATA:');
-                    console.log('   Full_Name:', leadName);
-                    console.log('   Phone:', leadPhone);
-                    console.log('   Email:', leadEmail);
-                    
-                    // ✅ KRİTİK: Full_Name yoksa hata ver, phone kontrolü yok (sadece Full_Name önemli)
-                    if (!leadName || leadName.trim() === '') {
-                        console.warn('⚠️ Lead Full_Name bulunamadı, tüm konuşmalar gösterilecek');
-                        // Full_Name yoksa da devam et, sadece filtreleme yapılmayacak
-                    }
-                    
-                    // Set global variables - FULL_NAME ÖNCELİKLİ
-                    window.leadId = leadId;
-                    window.leadName = leadName || ''; // ✅ FULL_NAME - FİLTRELEME İÇİN KULLANILACAK
-                    window.leadPhone = leadPhone || '';
-                    window.leadEmail = leadEmail || '';
+                    applyLeadDataFromObject({ id: leadId, ...lead }, { source: options.source || 'backend-fetch', triggerLoad: false });
 
-                    // ✅ Lead değiştiğinde tüm sender state'lerini sıfırla (showAll/filteredConversations)
-                    if (window.conversationsState) {
-                        window.conversationsState.showAll = false;
-                        window.conversationsState.filteredConversations = [];
-                    }
-                    if (window.conversationsStateBySender && typeof window.conversationsStateBySender === 'object') {
-                        Object.keys(window.conversationsStateBySender).forEach(senderKey => {
-                            const senderState = window.conversationsStateBySender[senderKey];
-                            if (senderState && typeof senderState === 'object') {
-                                senderState.showAll = false;
-                                senderState.filteredConversations = [];
-                            }
-                        });
-                    }
-                    
-                    console.log('✅✅✅✅✅ Global variables SET:');
-                    console.log('   window.leadId:', window.leadId);
-                    console.log('   window.leadName:', window.leadName);
-                    console.log('   window.leadPhone:', window.leadPhone);
-                    console.log('   window.leadEmail:', window.leadEmail);
-                    
-                    // Trigger event for app.js - FULL_NAME ÖNCELİKLİ
-                    window.dispatchEvent(new CustomEvent("zohoLeadDataLoaded", { 
-                        detail: { 
-                            id: window.leadId,
-                            Full_Name: window.leadName, // ✅ FULL_NAME - FİLTRELEME İÇİN (ÖNCELİKLİ)
-                            name: window.leadName, // ✅ Eski uyumluluk için
-                            phone: window.leadPhone,
-                            email: window.leadEmail
-                        } 
-                    }));
-                    
                     // Also trigger loadConversations if available
                     setTimeout(() => {
                         if (typeof loadConversations === "function") {
@@ -720,7 +963,7 @@
                 
                 // Yeni lead bilgilerini force reload ile çek
                 console.log('🔄 Yeni lead bilgileri çekiliyor...');
-                fetchLeadData(currentLeadId); // Direkt fetchLeadData çağır (getLeadFromReferrer yerine)
+                loadLeadContext({ forceReload: true, preferredId: currentLeadId, source: 'polling' });
             } else if (!currentLeadId && lastLeadId) {
                 // Lead ID kaybolduysa (örneğin, başka bir sayfaya geçildi)
                 console.log('🔄 Lead ID kayboldu. Eski:', lastLeadId);
@@ -839,12 +1082,12 @@
         
         // İlk yükleme
         initZohoEmbeddedApp(); // PageLoad event ile recordId yakalamayı dene
-        getLeadFromReferrer();
+        loadLeadContext({ source: 'initial-load' });
         loadUserPermissionsAndFilterSenders(); // ✅ Kullanıcı yetkilerini yükle
-        setTimeout(getLeadFromReferrer, 300);
-        setTimeout(getLeadFromReferrer, 600);
-        setTimeout(getLeadFromReferrer, 1000);
-        setTimeout(getLeadFromReferrer, 2000);
+        setTimeout(() => loadLeadContext({ source: 'initial-load-delay-300' }), 300);
+        setTimeout(() => loadLeadContext({ source: 'initial-load-delay-600' }), 600);
+        setTimeout(() => loadLeadContext({ source: 'initial-load-delay-1000' }), 1000);
+        setTimeout(() => loadLeadContext({ source: 'initial-load-delay-2000' }), 2000);
         
         // Her 1 saniyede bir lead değişikliğini kontrol et (daha agresif)
         setInterval(checkLeadChange, 1000);
