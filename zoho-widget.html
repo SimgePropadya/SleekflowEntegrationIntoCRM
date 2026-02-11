@@ -47,7 +47,7 @@
             <header class="top-bar">
                 <div class="top-bar-left">
                     <button class="btn-icon" id="openSidebar" type="button" onclick="window.toggleSidebar(); return false;">☰</button>
-                    <h1>Sleekflow Inbox!</h1> <!-- TEMP doğrulama -->
+                    <h1>Sleekflow Inbox</h1>
                 </div>
                 <div class="top-bar-right" style="display: flex; align-items: center; gap: 8px;">
                     <select id="channelFilterTop" class="sender-select" title="Choose Sender" style="margin: 0; width: auto; min-width: fit-content; padding-right: 36px;">
@@ -3020,54 +3020,51 @@
             }
             
             // ✅ FULL_NAME'E GÖRE FİLTRELEME
-            const leadName = window.leadName || '';
+            const leadNameRaw = window.leadName;
+            const hasLeadName = typeof leadNameRaw === 'string' && leadNameRaw.trim() !== '';
+            const leadName = hasLeadName ? leadNameRaw.trim() : '';
             const leadPhoneForMatch = normalizePhoneForMatch(window.leadPhone || window.leadPhoneNumber || '');
             let filteredConversations = filteredByChannel;
             
-            if (!showAll && leadName && leadName.trim() !== '') {
-                console.log('🔍 Lead filtre debug', {
-                    leadName,
-                    leadPhoneForMatch,
-                    sample: filteredByChannel.slice(0, 5).map(conv => ({
-                        contactName: conv.contactName,
-                        phoneNumber: conv.phoneNumber,
-                        customerPhone: conv.customerPhone,
-                        fromPhone: conv.fromPhone,
-                        rawPhoneNumber: conv.rawPhoneNumber,
-                        customerName: conv.customer?.name
-                    }))
-                });
-                filteredConversations = filteredByChannel.filter(conv => {
-                    const contactName = (conv.contactName || '').trim();
-                    if (contactName && !/^(bilinmeyen|unknown)$/i.test(contactName)) {
-                        return matchNames(leadName, contactName);
-                    }
-                    
-                    if (leadPhoneForMatch) {
-                        const phoneCandidates = [
-                            conv.phoneNumber,
-                            conv.customerPhone,
-                            conv.toPhone,
-                            conv.fromPhone,
-                            conv.rawPhoneNumber,
-                            conv._rawConversation?.userProfile?.phoneNumber,
-                            conv._rawConversation?.userProfile?.phone,
-                            conv._rawConversation?.customer?.phoneNumber,
-                            conv._rawConversation?.customer?.phone,
-                            conv._rawConversation?.whatsappCloudApiReceiver?.phoneNumber,
-                            conv._rawConversation?.whatsappCloudApiReceiver?.whatsappChannelPhoneNumber
-                        ];
+            if (!showAll) {
+                if (hasLeadName || leadPhoneForMatch) {
+                    filteredConversations = filteredByChannel.filter(conv => {
+                        const contactName = (conv.contactName || '').trim();
                         
-                        for (const candidate of phoneCandidates) {
-                            const normalized = normalizePhoneForMatch(candidate);
-                            if (normalized && normalized === leadPhoneForMatch) {
+                        if (hasLeadName && contactName && !/^(bilinmeyen|unknown)$/i.test(contactName)) {
+                            if (matchNames(leadName, contactName)) {
                                 return true;
                             }
                         }
-                    }
-                    
-                    return false;
-                });
+                        
+                        if (leadPhoneForMatch) {
+                            const phoneCandidates = [
+                                conv.phoneNumber,
+                                conv.customerPhone,
+                                conv.toPhone,
+                                conv.fromPhone,
+                                conv.rawPhoneNumber,
+                                conv._rawConversation?.userProfile?.phoneNumber,
+                                conv._rawConversation?.userProfile?.phone,
+                                conv._rawConversation?.customer?.phoneNumber,
+                                conv._rawConversation?.customer?.phone,
+                                conv._rawConversation?.whatsappCloudApiReceiver?.phoneNumber,
+                                conv._rawConversation?.whatsappCloudApiReceiver?.whatsappChannelPhoneNumber
+                            ];
+                            
+                            for (const candidate of phoneCandidates) {
+                                const normalized = normalizePhoneForMatch(candidate);
+                                if (normalized && normalized === leadPhoneForMatch) {
+                                    return true;
+                                }
+                            }
+                        }
+                        
+                        return false;
+                    });
+                } else {
+                    filteredConversations = [];
+                }
             }
             
             // ✅ Filtered conversations'ı sender'a özel state'e kaydet
@@ -3078,10 +3075,11 @@
             const fragment = document.createDocumentFragment();
             
             if (filteredConversations.length === 0) {
+                const leadLabel = leadName || 'Seçili lead';
                 list.innerHTML = `
                     <div class="empty-state">
-                        <p>📭 "${leadName}" ile konuşma bulunamadı</p>
-                        <p class="empty-hint">Tüm konuşmaları görmek için butona tıklayın</p>
+                        <p>📭 "${leadLabel}" için otomatik eşleşen konuşma bulunamadı</p>
+                        <p class="empty-hint">Tüm konuşmaları görmek için butona tıklayın. (Lead bilgisi yoksa konuşmalar otomatik gizlenir.)</p>
                     </div>
                 `;
                 
