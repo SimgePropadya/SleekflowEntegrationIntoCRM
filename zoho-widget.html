@@ -821,7 +821,21 @@
             const leadEmail = leadInfo.Email || leadInfo.email || '';
 
             window.leadId = leadInfo.id;
-            window.leadName = leadName || '';
+            let finalLeadName = (leadName || '').trim();
+            // ✅ Fallback: API'den isim gelmezse parent sayfa başlığından al (Zoho'da "Adil Yaman - ..." gibi)
+            if (!finalLeadName && window.parent && window.parent !== window) {
+                try {
+                    const title = window.parent.document.title || '';
+                    if (title && title.indexOf(' - ') !== -1) {
+                        const fromTitle = title.split(' - ')[0].trim();
+                        if (fromTitle.length >= 2 && fromTitle.length <= 80) {
+                            finalLeadName = fromTitle;
+                            console.log('✅ Lead ismi parent sayfa başlığından alındı:', finalLeadName);
+                        }
+                    }
+                } catch (e) { /* cross-origin */ }
+            }
+            window.leadName = finalLeadName;
             window.leadPhone = leadPhone || '';
             window.leadEmail = leadEmail || '';
 
@@ -839,11 +853,10 @@
                 });
             }
 
-            console.log('✅✅✅ Lead bilgisi uygulandı:', {
+            console.log('✅ Lead bilgisi uygulandı (FİLTRE İÇİN leadName KULLANILIR):', {
                 id: window.leadId,
-                name: window.leadName,
+                leadName: window.leadName || '(BOŞ – filtre uygulanmaz)',
                 phone: window.leadPhone,
-                email: window.leadEmail,
                 source: options.source || 'unknown'
             });
 
@@ -1258,8 +1271,10 @@
                 // ✅ BAŞARILI - localStorage'a kaydet
                 localStorage.setItem('sleekflowConnected', 'true');
                 
-                // ✅ KRİTİK: showAll state'ini koru
+                // ✅ KRİTİK: showAll state'ini koru – lead filtresi bu değerlere göre uygulanır
                 const showAll = window.conversationsState.showAll || false;
+                const leadNameForFilter = (window.leadName || '').trim();
+                console.log('📋 loadConversations → renderConversationsDirectly:', { leadName: leadNameForFilter || '(boş)', showAll, conversationsCount: conversations.length });
                 renderConversationsDirectly(conversations, showAll);
                 
                 // ✅ Kanal filtreleme event listener'ını kur
@@ -3297,17 +3312,22 @@
                 }
             }
             
-            // ✅ FULL_NAME'E GÖRE FİLTRELEME (gönderdiğin mantık: sadece contactName)
+            // ✅ FULL_NAME'E GÖRE FİLTRELEME (sadece contactName ile matchNames)
             const leadName = (window.leadName || '').trim();
             let filteredConversations = filteredByChannel;
             if (!showAll && leadName !== '') {
+                const beforeCount = filteredByChannel.length;
                 filteredConversations = filteredByChannel.filter(conv => {
                     return matchNames(leadName, conv.contactName || '');
                 });
-            }
-            if (!showAll && leadName === '' && !window.__leadDebugLogged) {
-                console.warn('Lead ismi alınamadı. Filtre uygulanmadı, tüm konuşmalar gösteriliyor.');
-                window.__leadDebugLogged = true;
+                console.log('🔍 Lead filtre uygulandı:', { leadName, showAll, kanalSonrasi: beforeCount, leadFiltreSonrasi: filteredConversations.length });
+            } else {
+                if (!showAll && leadName === '') {
+                    if (!window.__leadDebugLogged) {
+                        console.warn('Lead ismi yok – filtre uygulanmıyor, tüm konuşmalar gösteriliyor.');
+                        window.__leadDebugLogged = true;
+                    }
+                }
             }
             senderState.filteredConversations = filteredConversations;
             window.conversationsState.filteredConversations = filteredConversations;
