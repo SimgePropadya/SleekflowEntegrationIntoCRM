@@ -11,8 +11,13 @@ const zohoRoutes = require('./routes/zohoRoutes');
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// CORS: Widget Zoho CRM iframe'inden veya farklı origin'den istek atabiliyor
+app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
 app.use(express.json());
 
 // Request logging middleware
