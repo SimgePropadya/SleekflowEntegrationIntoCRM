@@ -1206,8 +1206,14 @@
                 if (window.leadName && String(window.leadName).trim()) {
                     conversationsUrl += '&leadName=' + encodeURIComponent(String(window.leadName).trim());
                 }
-                const leadIdForRequest = window.leadId || (() => { const p = new URLSearchParams(window.location.search); return p.get('recordId') || p.get('leadId') || p.get('id') || ''; })();
-                if (leadIdForRequest && String(leadIdForRequest).trim() && !/^[\$#\{\}]|recordid$/i.test(String(leadIdForRequest).trim())) {
+                // leadId: window.leadId, URL param (recordId= gercek sayi), veya REFERRER'dan (Zoho $recordId degistirmese bile)
+                let leadIdForRequest = window.leadId || (() => { const p = new URLSearchParams(window.location.search); return p.get('recordId') || p.get('leadId') || p.get('id') || ''; })();
+                if (!leadIdForRequest || /^[\$#\{\}]|recordid$/i.test(String(leadIdForRequest).trim()) || !/^\d{10,}$/.test(String(leadIdForRequest).trim())) {
+                    const ref = document.referrer || '';
+                    const m = ref.match(/\/tab\/Leads\/(\d{10,})/) || ref.match(/\/crm\/[^/]+\/tab\/Leads\/(\d{10,})/) || ref.match(/\/Leads\/(\d{10,})/);
+                    leadIdForRequest = (m && m[1]) ? m[1] : '';
+                }
+                if (leadIdForRequest && String(leadIdForRequest).trim()) {
                     conversationsUrl += '&leadId=' + encodeURIComponent(String(leadIdForRequest).trim());
                 }
                 conversationsUrl = addUserParamsToUrl(conversationsUrl);
