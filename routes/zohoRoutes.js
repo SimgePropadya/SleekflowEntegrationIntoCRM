@@ -9,7 +9,7 @@ const { isValidLeadId } = require('../utils/validation');
 
 /**
  * GET /api/zoho/lead-info
- * Lead bilgilerini getir
+ * Lead bilgilerini getir (Zoho CRM Get Records API v2: GET /crm/v2/Leads/{record_id})
  */
 router.get('/lead-info', asyncHandler(async (req, res, next) => {
     const { id, widgetUrl, referrer: referrerQuery, parentUrl } = req.query;
@@ -82,9 +82,11 @@ router.get('/lead-info', asyncHandler(async (req, res, next) => {
     }
 
     try {
-        const lead = await zohoGet(`/crm/v3/Leads/${leadId}`);
+        // Zoho CRM Get Records API (v2): GET /crm/v2/Leads/{record_id}
+        // https://www.zohoapis.com/crm/v2/Leads/{record_id}
+        const lead = await zohoGet(`/crm/v2/Leads/${leadId}`);
         
-        if (!lead || !lead.data || lead.data.length === 0) {
+        if (!lead || !lead.data || !Array.isArray(lead.data) || lead.data.length === 0) {
             return res.status(404).json({
                 error: 'Lead bulunamadı',
                 id: leadId
@@ -92,10 +94,16 @@ router.get('/lead-info', asyncHandler(async (req, res, next) => {
         }
 
         const leadData = lead.data[0];
+        const fullName = leadData.Full_Name != null ? String(leadData.Full_Name).trim() : '';
+        const firstName = leadData.First_Name != null ? String(leadData.First_Name).trim() : '';
+        const lastName = leadData.Last_Name != null ? String(leadData.Last_Name).trim() : '';
+        const displayName = fullName || [firstName, lastName].filter(Boolean).join(' ').trim() || '';
+        
+        logger.info('Lead bilgisi alındı (Zoho Get Records v2)', { leadId, Full_Name: displayName || fullName });
         
         res.json({
             id: leadId,
-            Full_Name: leadData.Full_Name || '',
+            Full_Name: displayName || fullName,
             First_Name: leadData.First_Name || '',
             Last_Name: leadData.Last_Name || '',
             Phone: leadData.Phone || leadData.Mobile || '',

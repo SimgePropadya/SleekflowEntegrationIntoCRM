@@ -3338,18 +3338,14 @@
             senderState.filteredConversations = filteredConversations;
             window.conversationsState.filteredConversations = filteredConversations; // Geriye dönük uyumluluk
             
-            // ✅ Lead filtre bilgi çubuğu
+            // ✅ Lead filtre bilgi çubuğu – sadece lead ismi varsa göster, yoksa hiç gösterme
             const leadFilterInfoEl = document.getElementById('leadFilterInfo');
             if (leadFilterInfoEl) {
-                const escapeHtml = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
-                if (showAll) {
+                if (showAll || !hasLeadName) {
                     leadFilterInfoEl.style.display = 'none';
-                } else if (hasLeadName) {
-                    const label = leadName;
-                    leadFilterInfoEl.innerHTML = `👤 <strong>${escapeHtml(label)}</strong> için <strong>${filteredConversations.length}</strong> konuşma eşlendi${filteredByChannel.length !== filteredConversations.length ? ` (${filteredByChannel.length} konuşma arasından)` : ''}`;
-                    leadFilterInfoEl.style.display = 'block';
                 } else {
-                    leadFilterInfoEl.innerHTML = '⚠️ Lead ismi yok – tüm konuşmalar gösteriliyor. Lead kaydında açın veya sayfayı yenileyin.';
+                    const escapeHtml = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+                    leadFilterInfoEl.innerHTML = `👤 <strong>${escapeHtml(leadName)}</strong> için <strong>${filteredConversations.length}</strong> konuşma eşlendi${filteredByChannel.length !== filteredConversations.length ? ` (${filteredByChannel.length} konuşma arasından)` : ''}`;
                     leadFilterInfoEl.style.display = 'block';
                 }
             }
