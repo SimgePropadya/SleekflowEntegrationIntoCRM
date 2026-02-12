@@ -1206,6 +1206,10 @@
                 if (window.leadName && String(window.leadName).trim()) {
                     conversationsUrl += '&leadName=' + encodeURIComponent(String(window.leadName).trim());
                 }
+                const leadIdForRequest = window.leadId || (() => { const p = new URLSearchParams(window.location.search); return p.get('recordId') || p.get('leadId') || p.get('id') || ''; })();
+                if (leadIdForRequest && String(leadIdForRequest).trim() && !/^[\$#\{\}]|recordid$/i.test(String(leadIdForRequest).trim())) {
+                    conversationsUrl += '&leadId=' + encodeURIComponent(String(leadIdForRequest).trim());
+                }
                 conversationsUrl = addUserParamsToUrl(conversationsUrl);
                 
                 const convResponse = await fetch(conversationsUrl, {

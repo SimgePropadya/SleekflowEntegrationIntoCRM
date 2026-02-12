@@ -7,6 +7,7 @@ const sleekflowService = require('../services/sleekflowService');
 const metaInstagramService = require('../services/metaInstagramService');
 const { asyncHandler, createErrorResponse, parseApiError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
+const { zohoGet } = require('../zohoClient');
 const { API_TIMEOUT } = require('../config/constants');
 const fs = require('fs');
 const path = require('path');
@@ -136,7 +137,7 @@ router.post('/connect', asyncHandler(async (req, res, next) => {
  * Konuşma listesi
  */
 router.get('/conversations', asyncHandler(async (req, res, next) => {
-    const { channel: filterChannel, apiKey, baseUrl, fromPhone: requestedFromPhone, userEmail, userId, leadName: reqLeadNameParam } = req.query;
+    const { channel: filterChannel, apiKey, baseUrl, fromPhone: requestedFromPhone, userEmail, userId, leadName: reqLeadNameParam, leadId: reqLeadIdParam } = req.query;
     
     // ✅ Helper function: Telefon numarasını temizle (tüm scope'ta erişilebilir)
     const cleanPhone = (phone) => {
@@ -1260,9 +1261,25 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
         }
     }
 
-    // ✅ LEAD NAME FİLTRELEME (opsiyonel - sadece isim, telefon yok)
+    // ✅ LEAD NAME FİLTRELEME: leadName query'den VEYA leadId ile Zoho'dan alınan isim
     let leadFilteredConversations = filteredConversations;
-    const reqLeadName = typeof reqLeadNameParam === 'string' ? reqLeadNameParam.trim() : '';
+    let reqLeadName = typeof reqLeadNameParam === 'string' ? reqLeadNameParam.trim() : '';
+    if (!reqLeadName && reqLeadIdParam) {
+        const leadIdTrim = String(reqLeadIdParam).trim();
+        const { isValidLeadId } = require('../utils/validation');
+        if (leadIdTrim && isValidLeadId(leadIdTrim)) {
+            try {
+                const leadRes = await zohoGet(`/crm/v2/Leads/${leadIdTrim}`);
+                if (leadRes && leadRes.data && leadRes.data[0]) {
+                    const ld = leadRes.data[0];
+                    reqLeadName = (ld.Full_Name != null ? String(ld.Full_Name).trim() : '') || [ld.First_Name, ld.Last_Name].filter(Boolean).map(s => String(s).trim()).join(' ').trim();
+                    logger.info('Lead ismi leadId ile Zoho\'dan alındı', { leadId: leadIdTrim, Full_Name: reqLeadName });
+                }
+            } catch (err) {
+                logger.warn('Lead ismi Zoho\'dan alınamadı (leadId ile filtre atlanıyor)', { leadId: String(reqLeadIdParam).trim(), error: err.message });
+            }
+        }
+    }
     if (reqLeadName) {
         const normalizeNameBackend = (name) => {
             if (!name || typeof name !== 'string') return '';
