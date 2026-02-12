@@ -11,10 +11,16 @@ const zohoRoutes = require('./routes/zohoRoutes');
 
 const app = express();
 
-// CORS: Her istekte gelen Origin'i aynen yansit (iframe/widget icin)
+// CORS: Widget Zoho iframe'den veya aynı host'tan istek atabiliyor
 function corsMiddleware(req, res, next) {
     const origin = req.headers.origin;
-    const allowOrigin = origin || `${req.protocol || 'https'}://${req.get('host') || req.hostname || 'localhost'}`;
+    const host = req.get('host') || req.hostname || '';
+    const isSameHost = origin && (origin.indexOf(host.replace(/:\d+$/, '')) !== -1);
+    const isZoho = origin && (/^https?:\/\/([a-z0-9-]+\.)?zoho\.(com|eu|in|com\.au)/i.test(origin) || /crm\.zoho/i.test(origin));
+    const isRender = origin && /\.onrender\.com$/i.test(origin);
+    const isLocal = origin && (/^https?:\/\/localhost(\d*)/i.test(origin) || /^https?:\/\/127\.0\.0\.1/i.test(origin));
+    const allowOrigin = (origin && (isSameHost || isZoho || isRender || isLocal)) ? origin : (origin || `https://${host}`);
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Origin', allowOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
