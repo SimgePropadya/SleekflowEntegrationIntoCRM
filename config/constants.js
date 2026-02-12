@@ -16,7 +16,10 @@ module.exports = {
     ZOHO: {
         ACCOUNTS_URL: process.env.ZOHO_ACCOUNTS_URL || 'https://accounts.zoho.com',
         API_DOMAIN: process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.com',
-        SCOPE: process.env.ZOHO_SCOPE || 'ZohoCRM.modules.ALL'
+        SCOPE: process.env.ZOHO_SCOPE || 'ZohoCRM.modules.ALL',
+        // Zoho Web Tab/Widget'ta kullanılacak dinamik embed linki (her lead için recordId ve recordName Zoho tarafından doldurulur)
+        EMBED_BASE_URL: process.env.WIDGET_BASE_URL || 'https://sleekflowentegrationintocrm-1.onrender.com',
+        EMBED_PATH: '/zoho-embed'
     },
     
     // Port

@@ -78,6 +78,12 @@
                         <input type="text" id="searchConversations" class="search-input" placeholder="🔍 Ara...">
                     </div>
                     
+                    <!-- Lead filter: manuel isim (Zoho API gelmezse kullan) -->
+                    <div id="leadFilterManual" style="padding: 8px 10px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; font-size: 13px;">
+                        <label for="leadNameInput" style="display:block; margin-bottom: 4px; color: #666;">👤 Lead adı (filtre için)</label>
+                        <input type="text" id="leadNameInput" placeholder="Örn: Adil Yaman (boş bırakırsanız tüm konuşmalar)" 
+                            style="width:100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
+                    </div>
                     <!-- Lead filter info bar -->
                     <div id="leadFilterInfo" class="lead-filter-info" style="display:none;"></div>
                     
@@ -461,24 +467,19 @@
             const runner = async () => {
                 console.log('🔍 loadLeadContext başlatıldı', { forceReload, preferredId, source });
 
-                let candidateId = preferredId || window.leadId;
-
-                if (candidateId && (!forceReload || candidateId === window.leadId)) {
-                    await fetchLeadData(candidateId, { source: 'loadLeadContext-cached' });
-                    return { status: 'cached-fetch', id: candidateId };
-                }
-
+                // Önce her zaman SDK dene – isim buradan gelir (backend'e isim için güvenme)
                 const sdkLead = await fetchLeadInfoViaZohoSdk();
                 if (sdkLead && sdkLead.id) {
-                    const needsBackfill = !sdkLead.Full_Name && !sdkLead.First_Name && !sdkLead.Last_Name;
-                    applyLeadDataFromObject(sdkLead, { source: sdkLead.source || 'zoho-sdk', triggerLoad: !needsBackfill });
-                    if (needsBackfill) {
-                        await fetchLeadData(sdkLead.id, { source: 'sdk-backfill' });
-                    }
+                    const hasName = !!(sdkLead.Full_Name || sdkLead.First_Name || sdkLead.Last_Name);
+                    applyLeadDataFromObject(sdkLead, { source: sdkLead.source || 'zoho-sdk', triggerLoad: true });
+                    if (!hasName) await fetchLeadData(sdkLead.id, { source: 'sdk-backfill' });
                     return { status: 'sdk', id: sdkLead.id };
                 }
 
-                candidateId = resolveLeadIdFromUrls(preferredId);
+                let candidateId = preferredId || window.leadId || resolveLeadIdFromUrls(preferredId);
+                if (candidateId && (!forceReload && window.leadId === candidateId && window.leadName)) {
+                    return { status: 'cached', id: candidateId };
+                }
                 if (candidateId) {
                     await fetchLeadData(candidateId, { source: 'url-fallback' });
                     return { status: 'url', id: candidateId };
@@ -548,24 +549,22 @@
             if (window.ZOHO) {
                 console.log('🔍 Zoho Widget API mevcut, deniyor...');
                 
-                // YÖNTEM 0.1: ZOHO.CRM.UI.getRecord() - Widget context'inden (EN ÖNCELİKLİ)
+                // YÖNTEM 0.1: ZOHO.CRM.UI.getRecord() – İsim SDK cevabından (backend'e sorma)
                 if (window.ZOHO.CRM && window.ZOHO.CRM.UI && typeof window.ZOHO.CRM.UI.getRecord === 'function') {
                     try {
                         console.log('🔍 ZOHO.CRM.UI.getRecord() deneniyor...');
                         window.ZOHO.CRM.UI.getRecord()
                             .then(function(response) {
                                 console.log('📥 ZOHO.CRM.UI.getRecord() response:', response);
-                                if (response && response.id) {
-                                    const zohoLeadId = response.id;
-                                    console.log('✅✅✅✅✅ Lead ID found via ZOHO.CRM.UI.getRecord():', zohoLeadId);
-                                    fetchLeadData(zohoLeadId);
-                                    return;
-                                } else if (response && response.data && response.data.id) {
-                                    const zohoLeadId = response.data.id;
-                                    console.log('✅✅✅✅✅ Lead ID found via ZOHO.CRM.UI.getRecord() (data.id):', zohoLeadId);
-                                    fetchLeadData(zohoLeadId);
+                                var info = normalizeLeadData(response, 'ZOHO.CRM.UI.getRecord');
+                                if (info && info.id) {
+                                    console.log('✅ Lead SDK\'dan (getRecord):', info.id, 'isim:', info.Full_Name || (info.First_Name + ' ' + info.Last_Name).trim() || '(yok)');
+                                    applyLeadDataFromObject(info, { source: 'zoho-sdk-getRecord', triggerLoad: true });
+                                    if (!info.Full_Name && !info.First_Name && !info.Last_Name) fetchLeadData(info.id, { source: 'sdk-backfill' });
                                     return;
                                 }
+                                if (response && response.id) { fetchLeadData(response.id); return; }
+                                if (response && response.data && response.data && response.data.id) { fetchLeadData(response.data.id); return; }
                             })
                             .catch(function(error) {
                                 console.log('⚠️ ZOHO.CRM.UI.getRecord() hatası:', error.message || error);
@@ -575,22 +574,27 @@
                     }
                 }
                 
-                // YÖNTEM 0.2: ZOHO.CRM.API.getRecord() - API ile
+                // YÖNTEM 0.2: ZOHO.CRM.API.getRecord() – İsim SDK cevabından
                 if (window.ZOHO.CRM && window.ZOHO.CRM.API && typeof window.ZOHO.CRM.API.getRecord === 'function') {
                     try {
                         console.log('🔍 ZOHO.CRM.API.getRecord() deneniyor...');
                         window.ZOHO.CRM.API.getRecord({ Entity: "Leads", RecordID: "current" })
                             .then(function(response) {
                                 console.log('📥 ZOHO.CRM.API.getRecord() response:', response);
+                                var info = normalizeLeadData(response, 'ZOHO.CRM.API.getRecord');
+                                if (info && info.id) {
+                                    console.log('✅ Lead SDK\'dan (API.getRecord):', info.id, 'isim:', info.Full_Name || (info.First_Name + ' ' + info.Last_Name).trim() || '(yok)');
+                                    applyLeadDataFromObject(info, { source: 'zoho-sdk-api', triggerLoad: true });
+                                    if (!info.Full_Name && !info.First_Name && !info.Last_Name) fetchLeadData(info.id, { source: 'sdk-backfill' });
+                                    return;
+                                }
                                 if (response && response.data && response.data[0] && response.data[0].id) {
-                                    const zohoLeadId = response.data[0].id;
-                                    console.log('✅✅✅✅✅ Lead ID found via ZOHO.CRM.API.getRecord():', zohoLeadId);
-                                    fetchLeadData(zohoLeadId);
+                                    fetchLeadData(response.data[0].id);
                                     return;
                                 }
                             })
                             .catch(function(error) {
-                                console.log('⚠️ ZOHO.CRM.API.getRecord() hatası (normal, OAuth gerekebilir):', error.message || error);
+                                console.log('⚠️ ZOHO.CRM.API.getRecord() hatası:', error.message || error);
                             });
                     } catch (e) {
                         console.log('⚠️ ZOHO.CRM.API.getRecord() mevcut değil:', e.message);
@@ -644,10 +648,18 @@
                 console.log('⚠️ window.ZOHO mevcut değil - Zoho Widget API kullanılamıyor');
             }
             
-            // YÖNTEM 1: URL parametrelerinden leadId al
+            // YÖNTEM 1: URL parametrelerinden leadId ve lead adı al
             const urlParams = new URLSearchParams(window.location.search);
             leadId = urlParams.get('leadId') || urlParams.get('id') || urlParams.get('recordId') || urlParams.get('record_id');
-            
+            // ✅ Lead ismi URL'den (Zoho merge: recordName={{Lead.Full_Name}})
+            const nameFromUrl = urlParams.get('recordName') || urlParams.get('leadName') || urlParams.get('record_name') || urlParams.get('full_name') || urlParams.get('Full_Name');
+            if (nameFromUrl && typeof nameFromUrl === 'string') {
+                const trimmed = nameFromUrl.trim();
+                if (trimmed.length >= 2 && trimmed.length <= 100 && !trimmed.includes('{{') && !trimmed.includes('$') && !/^#|Record\.|Lead\./i.test(trimmed)) {
+                    window.leadName = trimmed;
+                    console.log('✅ Lead ismi URL parametresinden alındı:', window.leadName);
+                }
+            }
             // YÖNTEM 1.1: Eğer leadId bir placeholder ise ($recordId, ${record.id}, #RecordId# vb.), geçersiz say
             if (leadId && (leadId.includes('$') || leadId.includes('{') || leadId.includes('#') || leadId.includes('RecordId') || leadId.includes('recordId') || leadId === '$recordId')) {
                 console.log('⚠️ Placeholder tespit edildi, geçersiz sayılıyor:', leadId);
@@ -822,7 +834,7 @@
 
             window.leadId = leadInfo.id;
             let finalLeadName = (leadName || '').trim();
-            // ✅ Fallback: API'den isim gelmezse parent sayfa başlığından al (Zoho'da "Adil Yaman - ..." gibi)
+            // ✅ Fallback 1: API'den isim gelmezse parent sayfa başlığından al
             if (!finalLeadName && window.parent && window.parent !== window) {
                 try {
                     const title = window.parent.document.title || '';
@@ -835,7 +847,24 @@
                     }
                 } catch (e) { /* cross-origin */ }
             }
-            window.leadName = finalLeadName;
+            // ✅ Fallback 2: Hâlâ yoksa URL'den (recordName= veya leadName=)
+            if (!finalLeadName) {
+                const p = new URLSearchParams(window.location.search);
+                const fromUrl = p.get('recordName') || p.get('leadName') || p.get('record_name') || p.get('full_name') || p.get('Full_Name');
+                if (fromUrl && typeof fromUrl === 'string') {
+                    const t = fromUrl.trim();
+                    if (t.length >= 2 && t.length <= 100 && !t.includes('{{') && !t.includes('$')) {
+                        finalLeadName = t;
+                        console.log('✅ Lead ismi URL parametresinden alındı (applyLeadData):', finalLeadName);
+                    }
+                }
+            }
+            // ✅ API'den isim geldiyse onu kullan; yoksa fallback'leri kullan; hiçbiri yoksa mevcut window.leadName'ı SİLME (URL'den set edilmiş olabilir)
+            if (finalLeadName) {
+                window.leadName = finalLeadName;
+            } else if (typeof window.leadName === 'undefined' || window.leadName === null) {
+                window.leadName = '';
+            }
             window.leadPhone = leadPhone || '';
             window.leadEmail = leadEmail || '';
 
@@ -852,6 +881,9 @@
                     }
                 });
             }
+
+            var leadNameInputEl = document.getElementById('leadNameInput');
+            if (leadNameInputEl) leadNameInputEl.value = window.leadName || '';
 
             console.log('✅ Lead bilgisi uygulandı (FİLTRE İÇİN leadName KULLANILIR):', {
                 id: window.leadId,
@@ -3756,7 +3788,20 @@
         
         document.addEventListener('DOMContentLoaded', function() {
             setupChannelFilter();
-            
+            // ✅ Manuel lead adı: yazınca filtre hemen uygulanır (Zoho API gelmezse bu alan kullanılır)
+            var leadNameInputEl = document.getElementById('leadNameInput');
+            if (leadNameInputEl) {
+                function applyLeadNameFromInput() {
+                    window.leadName = (leadNameInputEl.value || '').trim();
+                    if (typeof getCurrentSenderState === 'function' && typeof renderConversationsDirectly === 'function') {
+                        var state = getCurrentSenderState();
+                        var list = state.allConversations || [];
+                        if (list.length) renderConversationsDirectly(list, false);
+                    }
+                }
+                leadNameInputEl.addEventListener('input', applyLeadNameFromInput);
+                leadNameInputEl.addEventListener('change', applyLeadNameFromInput);
+            }
             const sidebar = document.getElementById('sidebar');
             if (sidebar) {
                 // Sidebar her zaman açık başla

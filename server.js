@@ -48,6 +48,16 @@ app.get("/zoho-widget.html", (req, res) => {
     res.sendFile(path.join(__dirname, "zoho-widget.html"));
 });
 
+// Zoho embed: tek link, query parametreleri widget'a iletir (her lead için dinamik)
+app.get("/zoho-embed", (req, res) => {
+    const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+    res.redirect(302, "/zoho-widget.html" + qs);
+});
+app.get("/zoho-embed/", (req, res) => {
+    const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+    res.redirect(302, "/zoho-widget.html" + qs);
+});
+
 app.get("/bulk-message.html", (req, res) => {
     logger.info("GET /bulk-message.html");
     res.sendFile(path.join(__dirname, "bulk-message.html"));
