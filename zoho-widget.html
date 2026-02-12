@@ -1206,7 +1206,6 @@
                 if (window.leadName && String(window.leadName).trim()) {
                     conversationsUrl += '&leadName=' + encodeURIComponent(String(window.leadName).trim());
                 }
-                // leadId: window.leadId, URL param (recordId= gercek sayi), veya REFERRER'dan (Zoho $recordId degistirmese bile)
                 let leadIdForRequest = window.leadId || (() => { const p = new URLSearchParams(window.location.search); return p.get('recordId') || p.get('leadId') || p.get('id') || ''; })();
                 if (!leadIdForRequest || /^[\$#\{\}]|recordid$/i.test(String(leadIdForRequest).trim()) || !/^\d{10,}$/.test(String(leadIdForRequest).trim())) {
                     const ref = document.referrer || '';
@@ -1216,6 +1215,8 @@
                 if (leadIdForRequest && String(leadIdForRequest).trim()) {
                     conversationsUrl += '&leadId=' + encodeURIComponent(String(leadIdForRequest).trim());
                 }
+                var pageRef = (typeof document !== 'undefined' && document.referrer) ? document.referrer : '';
+                if (pageRef) conversationsUrl += '&pageReferrer=' + encodeURIComponent(pageRef);
                 conversationsUrl = addUserParamsToUrl(conversationsUrl);
                 
                 const convResponse = await fetch(conversationsUrl, {
