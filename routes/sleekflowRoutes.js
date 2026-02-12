@@ -1262,6 +1262,7 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
     }
 
     // ✅ LEAD: leadId query'den, YOKSA pageReferrer (Zoho sayfa URL) query'den cikar
+    logger.info('Lead filtre parametreleri (gelen)', { leadId: reqLeadIdParam, pageReferrer: pageReferrerParam ? '(var)' : '(yok)', leadName: reqLeadNameParam ? '(var)' : '(yok)' });
     let resolvedLeadId = (typeof reqLeadIdParam === 'string' && reqLeadIdParam.trim()) ? String(reqLeadIdParam).replace(/\D/g, '').trim() : '';
     if (!resolvedLeadId && typeof pageReferrerParam === 'string' && pageReferrerParam) {
         const ref = decodeURIComponent(pageReferrerParam);
@@ -1273,27 +1274,31 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
     }
     if (resolvedLeadId && resolvedLeadId.length < 10) resolvedLeadId = '';
 
-    // ✅ LEAD NAME FİLTRELEME: leadName query'den VEYA resolvedLeadId ile Zoho'dan alınan isim
+    // ✅ LEAD: Zoho'dan isim + telefon al (isim yoksa telefona gore filtre)
     let leadFilteredConversations = filteredConversations;
     let reqLeadName = typeof reqLeadNameParam === 'string' ? reqLeadNameParam.trim() : '';
-    if (!reqLeadName && resolvedLeadId) {
+    let reqLeadPhone = '';
+    if (resolvedLeadId) {
         try {
             const leadRes = await zohoGet(`/crm/v2/Leads/${resolvedLeadId}`);
             if (leadRes && leadRes.data && leadRes.data[0]) {
                 const ld = leadRes.data[0];
-                reqLeadName = (ld.Full_Name != null ? String(ld.Full_Name).trim() : '') || [ld.First_Name, ld.Last_Name].filter(Boolean).map(s => String(s).trim()).join(' ').trim();
-                logger.info('Lead ismi Zoho\'dan alindi (conversations)', { leadId: resolvedLeadId, Full_Name: reqLeadName });
+                if (!reqLeadName) {
+                    reqLeadName = (ld.Full_Name != null ? String(ld.Full_Name).trim() : '') || [ld.First_Name, ld.Last_Name].filter(Boolean).map(s => String(s).trim()).join(' ').trim();
+                }
+                const p = (ld.Phone || ld.Mobile || '').toString().replace(/\D/g, '');
+                reqLeadPhone = p.length > 10 ? p.slice(-10) : p;
+                logger.info('Lead Zoho\'dan alindi (conversations)', { leadId: resolvedLeadId, Full_Name: reqLeadName || '(bos)', hasPhone: !!reqLeadPhone });
             }
         } catch (err) {
-            logger.warn('Lead ismi Zoho\'dan alinamadi', { leadId: resolvedLeadId, error: err.message });
+            logger.warn('Lead Zoho\'dan alinamadi', { leadId: resolvedLeadId, error: err.message });
         }
     }
-    if (reqLeadName) {
+    const hasLeadFilter = reqLeadName || reqLeadPhone;
+    if (hasLeadFilter) {
         const normalizeNameBackend = (name) => {
             if (!name || typeof name !== 'string') return '';
-            return String(name)
-                .toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            return String(name).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                 .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
                 .replace(/\s+/g, ' ').trim();
         };
@@ -1311,27 +1316,40 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
             }
             return false;
         };
+        const normPhone = (phone) => {
+            const d = String(phone || '').replace(/\D/g, '');
+            return d.length > 10 ? d.slice(-10) : d;
+        };
         leadFilteredConversations = filteredConversations.filter(conv => {
-            const raw = conv._rawConversation || {};
-            const candidates = [
-                conv.contactName,
-                conv.displayName,
-                conv.customerName,
-                raw.customer?.name,
-                raw.customer?.fullName,
-                raw.userProfile?.firstName && raw.userProfile?.lastName ? `${raw.userProfile.firstName} ${raw.userProfile.lastName}`.trim() : '',
-                raw.userProfile?.firstName,
-                raw.userProfile?.lastName,
-                raw.conversationName,
-                raw.whatsappProfileName,
-                raw.instagramProfileName
-            ].filter(Boolean).map(s => (typeof s === 'string' ? s.trim() : ''));
-            for (const c of candidates) {
-                if (c && !/^(bilinmeyen|unknown)$/i.test(c) && matchNamesBackend(reqLeadName, c)) return true;
+            let nameMatch = false;
+            if (reqLeadName) {
+                const raw = conv._rawConversation || {};
+                const candidates = [
+                    conv.contactName, conv.displayName, conv.customerName,
+                    raw.customer?.name, raw.customer?.fullName,
+                    raw.userProfile?.firstName && raw.userProfile?.lastName ? `${raw.userProfile.firstName} ${raw.userProfile.lastName}`.trim() : '',
+                    raw.userProfile?.firstName, raw.userProfile?.lastName,
+                    raw.conversationName, raw.whatsappProfileName, raw.instagramProfileName
+                ].filter(Boolean).map(s => (typeof s === 'string' ? s.trim() : ''));
+                for (const c of candidates) {
+                    if (c && !/^(bilinmeyen|unknown)$/i.test(c) && matchNamesBackend(reqLeadName, c)) { nameMatch = true; break; }
+                }
             }
-            return false;
+            let phoneMatch = false;
+            if (reqLeadPhone) {
+                const raw = conv._rawConversation || {};
+                const phones = [
+                    conv.phoneNumber, conv.toPhone,
+                    raw.userProfile?.phoneNumber, raw.userProfile?.phone, raw.userProfile?.mobile,
+                    raw.customer?.phoneNumber, raw.customer?.phone,
+                    raw.userIdentityId, raw.channelIdentityId,
+                    (raw.whatsappCloudApiReceiver || raw.whatsappReceiver || {})?.userIdentityId
+                ].map(p => normPhone(p)).filter(Boolean);
+                phoneMatch = phones.some(p => p === reqLeadPhone);
+            }
+            return nameMatch || phoneMatch;
         });
-        logger.info('Lead filtreleme uygulandı (sadece leadName)', { leadName: reqLeadName, before: filteredConversations.length, after: leadFilteredConversations.length });
+        logger.info('Lead filtreleme uygulandi', { byName: !!reqLeadName, byPhone: !!reqLeadPhone, before: filteredConversations.length, after: leadFilteredConversations.length });
     }
 
     // ✅ KRITIK: Conversation mapping - Her conversation için gönderen numarasına göre ayrı ID'ler oluştur

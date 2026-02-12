@@ -3297,63 +3297,29 @@
                 }
             }
             
-            // ✅ SADECE LEAD NAME'E GÖRE FİLTRELEME (telefon yok)
-            const leadNameRaw = window.leadName;
-            const hasLeadName = typeof leadNameRaw === 'string' && leadNameRaw.trim() !== '';
-            const leadName = hasLeadName ? leadNameRaw.trim() : '';
+            // ✅ FULL_NAME'E GÖRE FİLTRELEME (gönderdiğin mantık: sadece contactName)
+            const leadName = (window.leadName || '').trim();
             let filteredConversations = filteredByChannel;
-            
-            if (!showAll && hasLeadName) {
+            if (!showAll && leadName !== '') {
                 filteredConversations = filteredByChannel.filter(conv => {
-                    const candidateNames = [
-                        (conv.contactName || '').trim(),
-                        conv.displayName,
-                        conv.customerName,
-                        conv.customer?.name,
-                        conv.customer?.fullName,
-                        conv.customer?.displayName,
-                        conv._rawConversation?.customer?.name,
-                        conv._rawConversation?.customer?.fullName,
-                        conv._rawConversation?.customer?.displayName,
-                        conv._rawConversation?.userProfile?.name,
-                        conv._rawConversation?.userProfile?.fullName,
-                        conv._rawConversation?.userProfile?.displayName,
-                        conv._rawConversation?.conversationName,
-                        conv._rawConversation?.conversationTitle,
-                        conv._rawConversation?.whatsappProfileName,
-                        conv._rawConversation?.instagramProfileName,
-                        conv.lastMessage?.customerName,
-                        conv.lastMessage?.contactName,
-                        conv.lastMessage?.senderName
-                    ]
-                        .map(name => (typeof name === 'string' ? name.trim() : ''))
-                        .filter(name => name && !/^(bilinmeyen|unknown)$/i.test(name));
-                    return candidateNames.some(name => matchNames(leadName, name));
+                    return matchNames(leadName, conv.contactName || '');
                 });
             }
-            
-            if (!showAll && !hasLeadName && !window.__leadDebugLogged) {
-                const sample = filteredByChannel.slice(0, 10).map(conv => ({
-                    conversationId: conv.conversationId || conv.id,
-                    contactName: conv.contactName || null,
-                    customerName: conv.customer?.name || null,
-                    phoneNumber: conv.phoneNumber || null,
-                    fromPhone: conv.fromPhone || null,
-                    lastMessagePreview: ((conv.lastMessage && (typeof conv.lastMessage === 'string' ? conv.lastMessage : (conv.lastMessage.messageContent || conv.lastMessage.text || ''))) || '').toString().slice(0, 120)
-                }));
-                console.warn('⚠️ Lead ismi alınamadı. Filtre uygulanmadı, tüm konuşmalar gösteriliyor. Örnek kayıtlar:', sample);
+            if (!showAll && leadName === '' && !window.__leadDebugLogged) {
+                console.warn('Lead ismi alınamadı. Filtre uygulanmadı, tüm konuşmalar gösteriliyor.');
                 window.__leadDebugLogged = true;
             }
-            
-            // ✅ Filtered conversations'ı sender'a özel state'e kaydet
             senderState.filteredConversations = filteredConversations;
-            window.conversationsState.filteredConversations = filteredConversations; // Geriye dönük uyumluluk
-            
-            // ✅ Lead filtre bilgi çubuğu – sadece lead ismi varsa göster, yoksa hiç gösterme
+            window.conversationsState.filteredConversations = filteredConversations;
             const leadFilterInfoEl = document.getElementById('leadFilterInfo');
             if (leadFilterInfoEl) {
-                if (showAll || !hasLeadName) {
+                if (showAll || leadName === '') {
                     leadFilterInfoEl.style.display = 'none';
+                    if (!showAll && leadName === '' && window.leadId && String(window.leadId).trim()) {
+                        console.warn('Lead filtre: Lead ID var ama isim Zoho\'dan alınamadı.', { leadId: window.leadId });
+                    } else if (!showAll && leadName === '' && !window.leadId) {
+                        console.warn('Lead filtre: Lead ID yok.', { referrer: document.referrer || '(boş)' });
+                    }
                 } else {
                     const escapeHtml = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
                     leadFilterInfoEl.innerHTML = `👤 <strong>${escapeHtml(leadName)}</strong> için <strong>${filteredConversations.length}</strong> konuşma eşlendi${filteredByChannel.length !== filteredConversations.length ? ` (${filteredByChannel.length} konuşma arasından)` : ''}`;
@@ -3379,8 +3345,7 @@
                     btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 12px; cursor: pointer; font-weight: 600;';
                     btn.textContent = `📋 Tüm Konuşmaları Göster (${filteredBySender.length} konuşma)`;
                     btn.onclick = () => {
-                        senderState.showAll = true;
-                        window.conversationsState.showAll = true; // Geriye dönük uyumluluk
+                        window.conversationsState.showAll = true;
                         renderConversationsDirectly(filteredBySender, true);
                     };
                     fragment.appendChild(btn);
@@ -3500,7 +3465,7 @@
                 fragment.appendChild(item);
             }
             
-            // ✅ Tüm konuşmaları göster butonu (filtrelenmiş modda)
+            // ✅ Tüm konuşmaları göster butonu (gönderdiğin mantık: showAll=true, aynı liste ile tekrar render)
             if (!showAll && conversations.length > filteredConversations.length) {
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-primary';
