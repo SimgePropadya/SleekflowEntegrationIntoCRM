@@ -67,30 +67,19 @@ router.get('/lead-info', asyncHandler(async (req, res, next) => {
         }
     }
     
-    // Hala geçerli değilse, boş response döndür (hata değil, sadece lead ID yok)
-    if (!leadId || !isValidLeadId(leadId)) {
-        logger.warn('Lead ID bulunamadı', { 
-            id, 
-            widgetUrl: widgetUrl?.substring(0, 100),
-            referrer: req.get('referer')?.substring(0, 100)
-        });
-        return res.json({
-            error: null,
-            id: null,
-            message: 'Lead ID bulunamadı - tüm konuşmalar gösterilecek'
-        });
+    // LeadId sadece rakam olsun (kesilme/encoding onleme)
+    leadId = String(leadId || '').replace(/\D/g, '').trim();
+    if (!leadId || leadId.length < 10) {
+        logger.warn('Lead ID bulunamadı veya çok kısa', { id: req.query.id, leadIdLength: leadId.length });
+        return res.json({ error: null, id: null, Full_Name: '', message: 'Lead ID bulunamadı' });
     }
 
     try {
-        // Zoho CRM Get Records API (v2): GET /crm/v2/Leads/{record_id}
-        // https://www.zohoapis.com/crm/v2/Leads/{record_id}
         const lead = await zohoGet(`/crm/v2/Leads/${leadId}`);
         
         if (!lead || !lead.data || !Array.isArray(lead.data) || lead.data.length === 0) {
-            return res.status(404).json({
-                error: 'Lead bulunamadı',
-                id: leadId
-            });
+            logger.warn('Zoho lead kaydı boş', { leadId });
+            return res.json({ id: leadId, Full_Name: '', First_Name: '', Last_Name: '', Phone: '', Email: '' });
         }
 
         const leadData = lead.data[0];
@@ -99,7 +88,7 @@ router.get('/lead-info', asyncHandler(async (req, res, next) => {
         const lastName = leadData.Last_Name != null ? String(leadData.Last_Name).trim() : '';
         const displayName = fullName || [firstName, lastName].filter(Boolean).join(' ').trim() || '';
         
-        logger.info('Lead bilgisi alındı (Zoho Get Records v2)', { leadId, Full_Name: displayName || fullName });
+        logger.info('Lead bilgisi alındı (Zoho v2)', { leadId, Full_Name: displayName || fullName });
         
         res.json({
             id: leadId,
@@ -111,12 +100,17 @@ router.get('/lead-info', asyncHandler(async (req, res, next) => {
             ...leadData
         });
     } catch (error) {
-        logger.error('Lead bilgisi çekme hatası', { error: error.message, leadId });
-        
-        const parsedError = require('../utils/errorHandler').parseApiError(error);
-        return res.status(parsedError.status || 500).json(createErrorResponse(parsedError, {
-            id: leadId
-        }));
+        logger.error('Lead bilgisi Zoho hatası', { error: error.message, leadId, status: error.response?.status });
+        // Zoho 400/404/500 dönse bile 200 + leadId dön ki widget kırılmasın ve conversations leadId ile filtrelensin
+        res.status(200).json({
+            id: leadId,
+            Full_Name: '',
+            First_Name: '',
+            Last_Name: '',
+            Phone: '',
+            Email: '',
+            message: 'Lead ismi Zoho\'dan alınamadı; filtreleme leadId ile yapılacak.'
+        });
     }
 }));
 
