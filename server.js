@@ -11,42 +11,22 @@ const zohoRoutes = require('./routes/zohoRoutes');
 
 const app = express();
 
-// CORS: En basta - tum isteklere CORS header ekle (CORB/CORS hatalarini onler)
-const allowedOrigins = [
-    'https://crm.zoho.com',
-    'https://crm.zoho.eu',
-    'https://crm.zoho.com.tr',
-    'https://crm.zoho.in',
-    'https://www.zoho.com',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-];
-if (process.env.CORS_ORIGIN) {
-    allowedOrigins.push(...process.env.CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean));
-}
-
+// CORS: Her istekte gelen Origin'i aynen yansit (iframe/widget icin)
 function corsMiddleware(req, res, next) {
     const origin = req.headers.origin;
-    // Credentials kullanildigi icin * veremeyiz; gelen Origin'i yansit (veya izinli listeden)
-    const allowOrigin = origin || 'https://crm.zoho.com';
+    const allowOrigin = origin || `${req.protocol || 'https'}://${req.get('host') || req.hostname || 'localhost'}`;
     res.setHeader('Access-Control-Allow-Origin', allowOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Max-Age', '86400');
     if (req.method === 'OPTIONS') {
+        res.setHeader('Content-Length', '0');
         return res.status(204).end();
     }
     next();
 }
 app.use(corsMiddleware);
-
-app.use(cors({
-    origin: (orig, cb) => cb(null, true),
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
-}));
 app.use(express.json());
 
 // Request logging middleware
@@ -77,10 +57,15 @@ app.get("/bulk-message.html", (req, res) => {
 app.use(express.static(path.join(__dirname)));
 
 // =====================
-// API ROUTES
+// API ROUTES (JSON Content-Type CORB icin)
 // =====================
-app.use("/api/sleekflow", sleekflowRoutes);
-app.use("/api/zoho", zohoRoutes);
+app.use("/api/sleekflow", (req, res, next) => { res.setHeader('Content-Type', 'application/json'); next(); }, sleekflowRoutes);
+app.use("/api/zoho", (req, res, next) => { res.setHeader('Content-Type', 'application/json'); next(); }, zohoRoutes);
+
+app.get("/api/health", (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.json({ ok: true, cors: true, time: new Date().toISOString() });
+});
 
 // =====================
 // ERROR HANDLING MIDDLEWARE
