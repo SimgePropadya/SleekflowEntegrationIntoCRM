@@ -78,13 +78,7 @@
                         <input type="text" id="searchConversations" class="search-input" placeholder="🔍 Ara...">
                     </div>
                     
-                    <!-- Lead filter: manuel isim (Zoho API gelmezse kullan) -->
-                    <div id="leadFilterManual" style="padding: 8px 10px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; font-size: 13px;">
-                        <label for="leadNameInput" style="display:block; margin-bottom: 4px; color: #666;">👤 Lead adı (filtre için)</label>
-                        <input type="text" id="leadNameInput" placeholder="Örn: Adil Yaman (boş bırakırsanız tüm konuşmalar)" 
-                            style="width:100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
-                    </div>
-                    <!-- Lead filter info bar -->
+                    <!-- Lead filter info bar (otomatik: sayfadaki lead ismine göre filtre + Tüm Konuşmaları Gör butonu) -->
                     <div id="leadFilterInfo" class="lead-filter-info" style="display:none;"></div>
                     
                     <div class="conversations-list" id="conversationsList">
@@ -882,10 +876,7 @@
                 });
             }
 
-            var leadNameInputEl = document.getElementById('leadNameInput');
-            if (leadNameInputEl) leadNameInputEl.value = window.leadName || '';
-
-            console.log('✅ Lead bilgisi uygulandı (FİLTRE İÇİN leadName KULLANILIR):', {
+            console.log('✅ Lead bilgisi uygulandı (otomatik filtre için):', {
                 id: window.leadId,
                 leadName: window.leadName || '(BOŞ – filtre uygulanmaz)',
                 phone: window.leadPhone,
@@ -3694,51 +3685,46 @@
                         window.conversationsState.filteredConversations = [];
                     }
                     
-                    // ✅ 5. Sender seçildiğinde WhatsApp filtresini aktif et
+                    // ✅ 5. Sender seçildiğinde: önce sayfadaki lead ismini al, sonra konuşmaları çek, lead'e göre filtrele, altta "Tüm Konuşmaları Gör"
                     const channelFilter = document.getElementById('channelFilter');
                     if (selectedValue && selectedValue !== '') {
-                        // Sender seçildi - WhatsApp filtresini set et
-                        if (channelFilter) {
-                            channelFilter.value = 'whatsapp';
-                        }
+                        if (channelFilter) channelFilter.value = 'whatsapp';
                         
-                        // ✅ KRITIK: Sender seçildiğinde conversation'ları YENİDEN ÇEK (sadece o sender'a ait olanlar)
                         try {
+                            // ✅ ÖNCE: Bu sayfadaki lead ismini al (otomatik – SDK/referrer)
+                            await loadLeadContext({ forceReload: true });
+                            
                             const savedApiKey = localStorage.getItem('sleekflowApiKey') || '';
                             const savedBaseUrl = localStorage.getItem('sleekflowBaseUrl') || '';
                             const safeBaseUrl = (savedBaseUrl && savedBaseUrl !== 'undefined' && savedBaseUrl !== 'null') ? savedBaseUrl : '';
-                            
-                            // ✅ Önce kullanıcı bilgisini al (backend yetki kontrolü için)
                             await getCurrentZohoUser();
                             
-                            // ✅ Seçili sender'ı fromPhone olarak gönder (backend'de filtreleme için)
-                            const fromPhoneParam = selectedValue ? `&fromPhone=${encodeURIComponent(selectedValue)}` : '';
+                            const fromPhoneParam = `&fromPhone=${encodeURIComponent(selectedValue)}`;
+                            let convUrl = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(savedApiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}`;
+                            if (window.leadName && String(window.leadName).trim()) convUrl += '&leadName=' + encodeURIComponent(String(window.leadName).trim());
+                            if (window.leadId && String(window.leadId).trim()) convUrl += '&leadId=' + encodeURIComponent(String(window.leadId).trim());
+                            if (document.referrer) convUrl += '&pageReferrer=' + encodeURIComponent(document.referrer);
+                            convUrl = addUserParamsToUrl(convUrl);
                             
                             if (savedApiKey && savedApiKey.trim().length >= 10) {
-                                let convUrl = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(savedApiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}`;
-                                convUrl = addUserParamsToUrl(convUrl);
-                                const convResponse = await fetch(convUrl, {
-                                    method: 'GET',
-                                    headers: { 'Content-Type': 'application/json' }
-                                });
-                                
+                                const convResponse = await fetch(convUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
                                 if (convResponse.ok) {
                                     const convData = await convResponse.json();
                                     const conversations = convData.conversations || [];
-                                    
-                                    // ✅ Conversation'ları sender'a özel state'e kaydet ve render et
                                     senderState.allConversations = conversations;
                                     senderState.showAll = false;
+                                    window.conversationsState.showAll = false;
+                                    // Önce lead ismine göre filtrelenmiş listeyi göster; altta "Tüm Konuşmaları Gör" çıkar
                                     renderConversationsDirectly(conversations, false);
-                                    console.log('✅ Conversation\'lar yüklendi ve render edildi:', conversations.length);
+                                    console.log('✅ Sender seçildi → lead:', window.leadName || '(yok)', '→ konuşmalar lead\'e göre filtrelendi, Tüm Konuşmaları Gör butonu altta');
                                 } else {
-                                    console.error('❌ Conversation\'lar yüklenemedi:', convResponse.status);
+                                    console.error('❌ Konuşmalar yüklenemedi:', convResponse.status);
                                 }
                             } else {
-                                console.warn('⚠️ SleekFlow API key bulunamadı');
+                                console.warn('⚠️ SleekFlow API key yok');
                             }
                         } catch (error) {
-                            console.error('❌ Conversation\'lar yüklenirken hata:', error);
+                            console.error('❌ Sender seçimi hatası:', error);
                         }
                     } else if (selectedValue === '') {
                         // Choose Sender seçildi - filtreyi temizle
@@ -3788,20 +3774,6 @@
         
         document.addEventListener('DOMContentLoaded', function() {
             setupChannelFilter();
-            // ✅ Manuel lead adı: yazınca filtre hemen uygulanır (Zoho API gelmezse bu alan kullanılır)
-            var leadNameInputEl = document.getElementById('leadNameInput');
-            if (leadNameInputEl) {
-                function applyLeadNameFromInput() {
-                    window.leadName = (leadNameInputEl.value || '').trim();
-                    if (typeof getCurrentSenderState === 'function' && typeof renderConversationsDirectly === 'function') {
-                        var state = getCurrentSenderState();
-                        var list = state.allConversations || [];
-                        if (list.length) renderConversationsDirectly(list, false);
-                    }
-                }
-                leadNameInputEl.addEventListener('input', applyLeadNameFromInput);
-                leadNameInputEl.addEventListener('change', applyLeadNameFromInput);
-            }
             const sidebar = document.getElementById('sidebar');
             if (sidebar) {
                 // Sidebar her zaman açık başla
