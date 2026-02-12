@@ -459,7 +459,7 @@
             }
 
             const runner = async () => {
-                console.log('🔍 loadLeadContext başlatıldı', { forceReload, preferredId, source });
+                console.log('[LEAD] loadLeadContext başlatıldı', { forceReload, preferredId, source });
 
                 // Önce her zaman SDK dene – isim buradan gelir (backend'e isim için güvenme)
                 const sdkLead = await fetchLeadInfoViaZohoSdk();
@@ -489,7 +489,7 @@
                     return { status: 'backend-context', id: backendLead.id };
                 }
 
-                console.warn('⚠️ loadLeadContext lead bilgisi bulamadı');
+                console.warn('[LEAD] loadLeadContext lead bilgisi bulamadı');
                 return { status: 'not-found', id: null };
             };
 
@@ -552,7 +552,7 @@
                                 console.log('📥 ZOHO.CRM.UI.getRecord() response:', response);
                                 var info = normalizeLeadData(response, 'ZOHO.CRM.UI.getRecord');
                                 if (info && info.id) {
-                                    console.log('✅ Lead SDK\'dan (getRecord):', info.id, 'isim:', info.Full_Name || (info.First_Name + ' ' + info.Last_Name).trim() || '(yok)');
+                                    console.log('[LEAD] SDK getRecord → id + isim:', info.id, info.Full_Name || (info.First_Name + ' ' + info.Last_Name).trim() || '(yok)');
                                     applyLeadDataFromObject(info, { source: 'zoho-sdk-getRecord', triggerLoad: true });
                                     if (!info.Full_Name && !info.First_Name && !info.Last_Name) fetchLeadData(info.id, { source: 'sdk-backfill' });
                                     return;
@@ -577,7 +577,7 @@
                                 console.log('📥 ZOHO.CRM.API.getRecord() response:', response);
                                 var info = normalizeLeadData(response, 'ZOHO.CRM.API.getRecord');
                                 if (info && info.id) {
-                                    console.log('✅ Lead SDK\'dan (API.getRecord):', info.id, 'isim:', info.Full_Name || (info.First_Name + ' ' + info.Last_Name).trim() || '(yok)');
+                                    console.log('[LEAD] SDK API.getRecord → id + isim:', info.id, info.Full_Name || (info.First_Name + ' ' + info.Last_Name).trim() || '(yok)');
                                     applyLeadDataFromObject(info, { source: 'zoho-sdk-api', triggerLoad: true });
                                     if (!info.Full_Name && !info.First_Name && !info.Last_Name) fetchLeadData(info.id, { source: 'sdk-backfill' });
                                     return;
@@ -876,10 +876,9 @@
                 });
             }
 
-            console.log('✅ Lead bilgisi uygulandı (otomatik filtre için):', {
+            console.log('[LEAD] Lead bilgisi uygulandı → FİLTRE BUNU KULLANIR:', {
                 id: window.leadId,
                 leadName: window.leadName || '(BOŞ – filtre uygulanmaz)',
-                phone: window.leadPhone,
                 source: options.source || 'unknown'
             });
 
@@ -1297,7 +1296,7 @@
                 // ✅ KRİTİK: showAll state'ini koru – lead filtresi bu değerlere göre uygulanır
                 const showAll = window.conversationsState.showAll || false;
                 const leadNameForFilter = (window.leadName || '').trim();
-                console.log('📋 loadConversations → renderConversationsDirectly:', { leadName: leadNameForFilter || '(boş)', showAll, conversationsCount: conversations.length });
+                console.log('[LEAD] loadConversations → render:', { leadName: leadNameForFilter || '(boş)', showAll, conversationsCount: conversations.length });
                 renderConversationsDirectly(conversations, showAll);
                 
                 // ✅ Kanal filtreleme event listener'ını kur
@@ -3210,9 +3209,10 @@
         
         // ✅ Direkt konuşmaları render et (app.js yoksa bile çalışır)
         function renderConversationsDirectly(conversations, showAll = false) {
+            console.log('[LEAD] renderConversationsDirectly çağrıldı', { gelenKonusma: conversations.length, showAll, windowLeadName: (window.leadName || '(boş)') });
             const list = document.getElementById('conversationsList');
             if (!list) {
-                console.error('❌ conversationsList elementi bulunamadı!');
+                console.error('[LEAD] conversationsList bulunamadı!');
                 return;
             }
             
@@ -3343,14 +3343,14 @@
                 filteredConversations = filteredByChannel.filter(conv => {
                     return matchNames(leadName, conv.contactName || '');
                 });
-                console.log('🔍 Lead filtre uygulandı:', { leadName, showAll, kanalSonrasi: beforeCount, leadFiltreSonrasi: filteredConversations.length });
+                console.log('[LEAD] Filtre uygulandı:', { leadName, showAll, kanalSonrasi: beforeCount, leadFiltreSonrasi: filteredConversations.length });
             } else {
-                if (!showAll && leadName === '') {
-                    if (!window.__leadDebugLogged) {
-                        console.warn('Lead ismi yok – filtre uygulanmıyor, tüm konuşmalar gösteriliyor.');
-                        window.__leadDebugLogged = true;
+                    if (!showAll && leadName === '') {
+                        if (!window.__leadDebugLogged) {
+                            console.warn('[LEAD] Lead ismi yok – filtre uygulanmıyor, tüm konuşmalar gösteriliyor.');
+                            window.__leadDebugLogged = true;
+                        }
                     }
-                }
             }
             senderState.filteredConversations = filteredConversations;
             window.conversationsState.filteredConversations = filteredConversations;
@@ -3359,9 +3359,9 @@
                 if (showAll || leadName === '') {
                     leadFilterInfoEl.style.display = 'none';
                     if (!showAll && leadName === '' && window.leadId && String(window.leadId).trim()) {
-                        console.warn('Lead filtre: Lead ID var ama isim Zoho\'dan alınamadı.', { leadId: window.leadId });
+                        console.warn('[LEAD] Lead ID var ama isim yok – filtre uygulanamıyor.', { leadId: window.leadId });
                     } else if (!showAll && leadName === '' && !window.leadId) {
-                        console.warn('Lead filtre: Lead ID yok.', { referrer: document.referrer || '(boş)' });
+                        console.warn('[LEAD] Lead ID yok.', { referrer: document.referrer || '(boş)' });
                     }
                 } else {
                     const escapeHtml = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
@@ -3716,7 +3716,7 @@
                                     window.conversationsState.showAll = false;
                                     // Önce lead ismine göre filtrelenmiş listeyi göster; altta "Tüm Konuşmaları Gör" çıkar
                                     renderConversationsDirectly(conversations, false);
-                                    console.log('✅ Sender seçildi → lead:', window.leadName || '(yok)', '→ konuşmalar lead\'e göre filtrelendi, Tüm Konuşmaları Gör butonu altta');
+                                    console.log('[LEAD] Sender seçildi → lead:', window.leadName || '(yok)', '→ konuşmalar lead\'e göre filtrelendi, Tüm Konuşmaları Gör butonu altta');
                                 } else {
                                     console.error('❌ Konuşmalar yüklenemedi:', convResponse.status);
                                 }
