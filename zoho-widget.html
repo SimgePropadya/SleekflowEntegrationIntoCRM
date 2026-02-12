@@ -1203,6 +1203,9 @@
                 const fromPhoneParam = selectedSenderPhone ? `&fromPhone=${encodeURIComponent(selectedSenderPhone)}` : '';
                 
                 let conversationsUrl = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(apiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}`;
+                if (window.leadName && String(window.leadName).trim()) {
+                    conversationsUrl += '&leadName=' + encodeURIComponent(String(window.leadName).trim());
+                }
                 conversationsUrl = addUserParamsToUrl(conversationsUrl);
                 
                 const convResponse = await fetch(conversationsUrl, {
@@ -1402,27 +1405,25 @@
                 .trim();
         }
         
-        // ✅ İsim eşleştirme fonksiyonu
+        // ✅ İsim eşleştirme fonksiyonu (gevşek: tek kelime/soyisim de yeterli)
         function matchNames(leadName, conversationName) {
             if (!leadName || !conversationName) return false;
             const normalizedLead = normalizeName(leadName);
             const normalizedConv = normalizeName(conversationName);
-            
+            if (/^(bilinmeyen|unknown)$/i.test(normalizedConv)) return false;
             if (normalizedLead === normalizedConv) return true;
             if (normalizedConv.includes(normalizedLead) && normalizedLead.length >= 3) return true;
-            
+            if (normalizedLead.includes(normalizedConv) && normalizedConv.length >= 3) return true;
             const leadWords = normalizedLead.split(' ').filter(w => w.length >= 2);
             const convWords = normalizedConv.split(' ').filter(w => w.length >= 2);
-            
             if (leadWords.length > 0 && convWords.length > 0) {
                 const matchingWords = leadWords.filter(leadWord =>
                     convWords.some(convWord => convWord === leadWord)
                 );
-                if (matchingWords.length === leadWords.length) {
-                    if (leadWords.length >= 2 || (leadWords.length === 1 && leadWords[0].length >= 3)) {
-                        return true;
-                    }
-                }
+                if (matchingWords.length === leadWords.length && (leadWords.length >= 2 || (leadWords.length === 1 && leadWords[0].length >= 3))) return true;
+                if (matchingWords.length >= 2) return true;
+                if (leadWords.length === 1 && leadWords[0].length >= 4 && matchingWords.length === 1) return true;
+                if (matchingWords.length >= 1 && leadWords.some(w => w.length >= 4) && matchingWords.some(w => w.length >= 4)) return true;
             }
             return false;
         }
@@ -3180,12 +3181,6 @@
                 return String(phone || '').replace(/\+/g, '').replace(/\s/g, '').replace(/-/g, '').replace(/\(/g, '').replace(/\)/g, '').trim();
             };
             
-            const normalizePhoneForMatch = (phone) => {
-                const digits = cleanPhone(phone);
-                if (!digits) return '';
-                return digits.length > 10 ? digits.slice(-10) : digits;
-            };
-            
             // ✅ KANAL FİLTRELEME
             const channelFilter = document.getElementById('channelFilter');
             const channelFilterTop = document.getElementById('channelFilterTop');
@@ -3291,75 +3286,42 @@
                 }
             }
             
-            // ✅ FULL_NAME'E GÖRE FİLTRELEME
+            // ✅ SADECE LEAD NAME'E GÖRE FİLTRELEME (telefon yok)
             const leadNameRaw = window.leadName;
             const hasLeadName = typeof leadNameRaw === 'string' && leadNameRaw.trim() !== '';
             const leadName = hasLeadName ? leadNameRaw.trim() : '';
-            const leadPhoneForMatch = normalizePhoneForMatch(window.leadPhone || window.leadPhoneNumber || '');
             let filteredConversations = filteredByChannel;
             
-            if (!showAll && (hasLeadName || leadPhoneForMatch)) {
+            if (!showAll && hasLeadName) {
                 filteredConversations = filteredByChannel.filter(conv => {
-                    const contactName = (conv.contactName || '').trim();
-
-                    if (hasLeadName) {
-                        const candidateNames = [
-                            contactName,
-                            conv.displayName,
-                            conv.customerName,
-                            conv.customer?.name,
-                            conv.customer?.fullName,
-                            conv.customer?.displayName,
-                            conv._rawConversation?.customer?.name,
-                            conv._rawConversation?.customer?.fullName,
-                            conv._rawConversation?.customer?.displayName,
-                            conv._rawConversation?.userProfile?.name,
-                            conv._rawConversation?.userProfile?.fullName,
-                            conv._rawConversation?.userProfile?.displayName,
-                            conv._rawConversation?.conversationName,
-                            conv._rawConversation?.conversationTitle,
-                            conv._rawConversation?.whatsappProfileName,
-                            conv._rawConversation?.instagramProfileName,
-                            conv.lastMessage?.customerName,
-                            conv.lastMessage?.contactName,
-                            conv.lastMessage?.senderName
-                        ]
-                            .map(name => (typeof name === 'string' ? name.trim() : ''))
-                            .filter(name => name && !/^(bilinmeyen|unknown)$/i.test(name));
-
-                        if (candidateNames.some(name => matchNames(leadName, name))) {
-                            return true;
-                        }
-                    }
-
-                    if (leadPhoneForMatch) {
-                        const phoneCandidates = [
-                            conv.phoneNumber,
-                            conv.customerPhone,
-                            conv.toPhone,
-                            conv.fromPhone,
-                            conv.rawPhoneNumber,
-                            conv._rawConversation?.userProfile?.phoneNumber,
-                            conv._rawConversation?.userProfile?.phone,
-                            conv._rawConversation?.customer?.phoneNumber,
-                            conv._rawConversation?.customer?.phone,
-                            conv._rawConversation?.whatsappCloudApiReceiver?.phoneNumber,
-                            conv._rawConversation?.whatsappCloudApiReceiver?.whatsappChannelPhoneNumber
-                        ];
-
-                        for (const candidate of phoneCandidates) {
-                            const normalized = normalizePhoneForMatch(candidate);
-                            if (normalized && normalized === leadPhoneForMatch) {
-                                return true;
-                            }
-                        }
-                    }
-
-                    return false;
+                    const candidateNames = [
+                        (conv.contactName || '').trim(),
+                        conv.displayName,
+                        conv.customerName,
+                        conv.customer?.name,
+                        conv.customer?.fullName,
+                        conv.customer?.displayName,
+                        conv._rawConversation?.customer?.name,
+                        conv._rawConversation?.customer?.fullName,
+                        conv._rawConversation?.customer?.displayName,
+                        conv._rawConversation?.userProfile?.name,
+                        conv._rawConversation?.userProfile?.fullName,
+                        conv._rawConversation?.userProfile?.displayName,
+                        conv._rawConversation?.conversationName,
+                        conv._rawConversation?.conversationTitle,
+                        conv._rawConversation?.whatsappProfileName,
+                        conv._rawConversation?.instagramProfileName,
+                        conv.lastMessage?.customerName,
+                        conv.lastMessage?.contactName,
+                        conv.lastMessage?.senderName
+                    ]
+                        .map(name => (typeof name === 'string' ? name.trim() : ''))
+                        .filter(name => name && !/^(bilinmeyen|unknown)$/i.test(name));
+                    return candidateNames.some(name => matchNames(leadName, name));
                 });
             }
             
-            if (!showAll && !(hasLeadName || leadPhoneForMatch) && !window.__leadDebugLogged) {
+            if (!showAll && !hasLeadName && !window.__leadDebugLogged) {
                 const sample = filteredByChannel.slice(0, 10).map(conv => ({
                     conversationId: conv.conversationId || conv.id,
                     contactName: conv.contactName || null,
@@ -3368,7 +3330,7 @@
                     fromPhone: conv.fromPhone || null,
                     lastMessagePreview: ((conv.lastMessage && (typeof conv.lastMessage === 'string' ? conv.lastMessage : (conv.lastMessage.messageContent || conv.lastMessage.text || ''))) || '').toString().slice(0, 120)
                 }));
-                console.warn('⚠️ Lead için isim/telefon bilgisi alınamadı. Filtre uygulanmadı, tüm konuşmalar gösteriliyor. Örnek kayıtlar:', sample);
+                console.warn('⚠️ Lead ismi alınamadı. Filtre uygulanmadı, tüm konuşmalar gösteriliyor. Örnek kayıtlar:', sample);
                 window.__leadDebugLogged = true;
             }
             
@@ -3376,11 +3338,27 @@
             senderState.filteredConversations = filteredConversations;
             window.conversationsState.filteredConversations = filteredConversations; // Geriye dönük uyumluluk
             
+            // ✅ Lead filtre bilgi çubuğu
+            const leadFilterInfoEl = document.getElementById('leadFilterInfo');
+            if (leadFilterInfoEl) {
+                const escapeHtml = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+                if (showAll) {
+                    leadFilterInfoEl.style.display = 'none';
+                } else if (hasLeadName) {
+                    const label = leadName;
+                    leadFilterInfoEl.innerHTML = `👤 <strong>${escapeHtml(label)}</strong> için <strong>${filteredConversations.length}</strong> konuşma eşlendi${filteredByChannel.length !== filteredConversations.length ? ` (${filteredByChannel.length} konuşma arasından)` : ''}`;
+                    leadFilterInfoEl.style.display = 'block';
+                } else {
+                    leadFilterInfoEl.innerHTML = '⚠️ Lead ismi yok – tüm konuşmalar gösteriliyor. Lead kaydında açın veya sayfayı yenileyin.';
+                    leadFilterInfoEl.style.display = 'block';
+                }
+            }
+            
             // ✅ ULTRA HIZLI RENDER - DocumentFragment kullan
             const fragment = document.createDocumentFragment();
             
             if (filteredConversations.length === 0) {
-                const leadLabel = leadName || (leadPhoneForMatch ? `(${leadPhoneForMatch})` : 'Bu lead');
+                const leadLabel = leadName || 'Bu lead';
                 list.innerHTML = `
                     <div class="empty-state">
                         <p>📭 "${leadLabel}" için otomatik eşleşen konuşma bulunamadı</p>

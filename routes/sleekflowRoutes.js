@@ -136,7 +136,7 @@ router.post('/connect', asyncHandler(async (req, res, next) => {
  * Konuşma listesi
  */
 router.get('/conversations', asyncHandler(async (req, res, next) => {
-    const { channel: filterChannel, apiKey, baseUrl, fromPhone: requestedFromPhone, userEmail, userId } = req.query;
+    const { channel: filterChannel, apiKey, baseUrl, fromPhone: requestedFromPhone, userEmail, userId, leadName: reqLeadNameParam } = req.query;
     
     // ✅ Helper function: Telefon numarasını temizle (tüm scope'ta erişilebilir)
     const cleanPhone = (phone) => {
@@ -1260,9 +1260,58 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
         }
     }
 
+    // ✅ LEAD NAME FİLTRELEME (opsiyonel - sadece isim, telefon yok)
+    let leadFilteredConversations = filteredConversations;
+    const reqLeadName = typeof reqLeadNameParam === 'string' ? reqLeadNameParam.trim() : '';
+    if (reqLeadName) {
+        const normalizeNameBackend = (name) => {
+            if (!name || typeof name !== 'string') return '';
+            return String(name)
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/\s+/g, ' ').trim();
+        };
+        const matchNamesBackend = (leadName, convName) => {
+            if (!leadName || !convName) return false;
+            const nLead = normalizeNameBackend(leadName);
+            const nConv = normalizeNameBackend(convName);
+            if (nLead === nConv) return true;
+            if (nConv.includes(nLead) && nLead.length >= 3) return true;
+            const leadWords = nLead.split(' ').filter(w => w.length >= 2);
+            const convWords = nConv.split(' ').filter(w => w.length >= 2);
+            if (leadWords.length > 0 && convWords.length > 0) {
+                const matching = leadWords.filter(lw => convWords.some(cw => cw === lw));
+                if (matching.length >= Math.min(2, leadWords.length) || (leadWords.length === 1 && leadWords[0].length >= 3 && matching.length === 1)) return true;
+            }
+            return false;
+        };
+        leadFilteredConversations = filteredConversations.filter(conv => {
+            const raw = conv._rawConversation || {};
+            const candidates = [
+                conv.contactName,
+                conv.displayName,
+                conv.customerName,
+                raw.customer?.name,
+                raw.customer?.fullName,
+                raw.userProfile?.firstName && raw.userProfile?.lastName ? `${raw.userProfile.firstName} ${raw.userProfile.lastName}`.trim() : '',
+                raw.userProfile?.firstName,
+                raw.userProfile?.lastName,
+                raw.conversationName,
+                raw.whatsappProfileName,
+                raw.instagramProfileName
+            ].filter(Boolean).map(s => (typeof s === 'string' ? s.trim() : ''));
+            for (const c of candidates) {
+                if (c && !/^(bilinmeyen|unknown)$/i.test(c) && matchNamesBackend(reqLeadName, c)) return true;
+            }
+            return false;
+        });
+        logger.info('Lead filtreleme uygulandı (sadece leadName)', { leadName: reqLeadName, before: filteredConversations.length, after: leadFilteredConversations.length });
+    }
+
     // ✅ KRITIK: Conversation mapping - Her conversation için gönderen numarasına göre ayrı ID'ler oluştur
     // ✅ Aynı conversation'ı farklı numaralardan mesajlaşma yapıldığında ayrı conversation'lar gibi göstermek için
-    const senderMappedConversations = filteredConversations.map(conv => {
+    const senderMappedConversations = leadFilteredConversations.map(conv => {
         const originalConvId = conv.conversationId || conv.id;
         
         // ✅ Eğer fromPhone parametresi varsa, conversation ID'sine gönderen numarasını ekle

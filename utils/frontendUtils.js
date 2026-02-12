@@ -20,7 +20,7 @@ function normalizeName(name) {
 }
 
 /**
- * İsim eşleşmesi kontrolü
+ * İsim eşleşmesi kontrolü (gevşek: tek kelime/soyisim de yeterli olabilir)
  */
 function matchNames(leadName, conversationName) {
     if (!leadName || !conversationName) return false;
@@ -28,15 +28,17 @@ function matchNames(leadName, conversationName) {
     const normalizedLead = normalizeName(leadName);
     const normalizedConv = normalizeName(conversationName);
     
+    // Bilinmeyen/Unknown ile eşleştirme
+    if (/^(bilinmeyen|unknown)$/i.test(normalizedConv)) return false;
+    
     // Tam eşleşme
-    if (normalizedLead === normalizedConv) {
-        return true;
-    }
+    if (normalizedLead === normalizedConv) return true;
     
     // Lead isminin tamamı conversation isminde geçiyorsa
-    if (normalizedConv.includes(normalizedLead) && normalizedLead.length >= 3) {
-        return true;
-    }
+    if (normalizedConv.includes(normalizedLead) && normalizedLead.length >= 3) return true;
+    
+    // Conversation ismi lead isminde geçiyorsa (ters yön)
+    if (normalizedLead.includes(normalizedConv) && normalizedConv.length >= 3) return true;
     
     // Kelime bazlı eşleşme
     const leadWords = normalizedLead.split(' ').filter(w => w.length >= 2);
@@ -46,13 +48,14 @@ function matchNames(leadName, conversationName) {
         const matchingWords = leadWords.filter(leadWord => 
             convWords.some(convWord => convWord === leadWord)
         );
-        
-        // Tüm kelimeler eşleşmeli
+        // Tüm kelimeler eşleşirse kabul
         if (matchingWords.length === leadWords.length) {
-            if (leadWords.length >= 2 || (leadWords.length === 1 && leadWords[0].length >= 3)) {
-                return true;
-            }
+            if (leadWords.length >= 2 || (leadWords.length === 1 && leadWords[0].length >= 3)) return true;
         }
+        // Gevşek: En az 2 kelime eşleşmesi veya tek uzun kelime (soyisim) eşleşmesi
+        if (matchingWords.length >= 2) return true;
+        if (leadWords.length === 1 && leadWords[0].length >= 4 && matchingWords.length === 1) return true;
+        if (matchingWords.length >= 1 && leadWords.some(w => w.length >= 4) && matchingWords.some(w => w.length >= 4)) return true;
     }
     
     return false;

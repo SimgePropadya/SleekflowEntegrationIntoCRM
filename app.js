@@ -507,11 +507,12 @@ async function loadConversations(silent = false) {
         // Sadece kullanıcı manuel olarak kanal seçtiyse ve "Tüm Konuşmaları Göster" butonuna basmadıysa kanal filtresi uygula
         let url;
         if (shouldShowAll && state.selectedChannelFilter && state.selectedChannelFilter !== 'all') {
-            // Kullanıcı "Tüm Konuşmaları Göster" butonuna bastı VE bir kanal seçtiyse, o kanalı filtrele
             url = `/sleekflow/conversations?channel=${encodeURIComponent(state.selectedChannelFilter)}`;
         } else {
-            // Lead filtreleme yapılırken veya "Tüm Kanallar" seçiliyse, TÜM kanalları çek
             url = '/sleekflow/conversations';
+        }
+        if (!shouldShowAll && leadName && String(leadName).trim()) {
+            url += (url.includes('?') ? '&' : '?') + 'leadName=' + encodeURIComponent(String(leadName).trim());
         }
 
         console.log('🌐🌐🌐 API çağrısı yapılıyor:', url);
