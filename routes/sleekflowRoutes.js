@@ -1296,8 +1296,7 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
         }
     }
 
-    // ✅ LEAD: "Tüm Konuşmaları Göster" için skipLeadFilter=1 gelirse lead filtresi UYGULANMAZ (o numaraya ait tüm konuşmalar döner)
-    const forceSkipLeadFilter = skipLeadFilter === '1' || skipLeadFilter === 'true' || skipLeadFilter === true;
+    // ✅ LEAD: "Tüm Konuşmaları Göster" için skipLeadFilter=1 gelirse lead filtresi UYGULANMAZ (forceSkipLeadFilter yukarıda tanımlı)
     if (forceSkipLeadFilter) {
         logger.info('Lead filtre atlandi (skipLeadFilter=1) – tum konusmalar dondurulecek');
     }
