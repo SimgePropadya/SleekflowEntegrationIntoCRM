@@ -1350,6 +1350,11 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
             return nameMatch || phoneMatch;
         });
         logger.info('Lead filtreleme uygulandi', { byName: !!reqLeadName, byPhone: !!reqLeadPhone, before: filteredConversations.length, after: leadFilteredConversations.length });
+        // Lead filtresi 0 konuşma bırakıyorsa filtre uygulama – seçili sendere ait tüm konuşmalar dönsün (örn. Hamzah)
+        if (leadFilteredConversations.length === 0 && filteredConversations.length > 0) {
+            leadFilteredConversations = filteredConversations;
+            logger.info('Lead filtre 0 sonuc verdi, lead filtresi kaldirildi – tum konusmalar donduruluyor');
+        }
     }
 
     // ✅ KRITIK: Conversation mapping - Her conversation için gönderen numarasına göre ayrı ID'ler oluştur

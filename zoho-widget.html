@@ -1314,6 +1314,40 @@
                 console.log('[LEAD] loadConversations → render:', { leadName: leadNameForFilter || '(boş)', showAll, conversationsCount: conversations.length });
                 renderConversationsDirectly(conversations, showAll);
                 
+                // ✅ "Tüm Konuşmaları Göster" için: Lead filtresi OLMADAN seçili sendere ait tüm konuşmaları çekebilecek fonksiyon
+                window.loadAllConversationsForSender = async function() {
+                    if (typeof getCurrentZohoUser === 'function') await getCurrentZohoUser();
+                    const apiKey = localStorage.getItem('sleekflowApiKey') || '';
+                    const baseUrl = localStorage.getItem('sleekflowBaseUrl') || '';
+                    const safeBaseUrl = (baseUrl && baseUrl !== 'undefined' && baseUrl !== 'null') ? baseUrl : '';
+                    const channelFilterTop = document.getElementById('channelFilterTop');
+                    const selectedSenderPhone = channelFilterTop && channelFilterTop.value ? channelFilterTop.value : '';
+                    const fromPhoneParam = selectedSenderPhone ? `&fromPhone=${encodeURIComponent(selectedSenderPhone)}` : '';
+                    let url = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(apiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}`;
+                    url = (typeof addUserParamsToUrl === 'function') ? addUserParamsToUrl(url) : url;
+                    try {
+                        const res = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+                        if (!res.ok) throw new Error('Konuşmalar yüklenemedi');
+                        const data = await res.json();
+                        const allConvs = data.conversations || [];
+                        (allConvs || []).forEach(conv => {
+                            const convId = conv.conversationId || conv.id;
+                            if (convId && readConversations.has(convId)) {
+                                if (window.conversationsState.unreadCounts) window.conversationsState.unreadCounts[convId] = 0;
+                                conv.unreadCount = 0;
+                            }
+                        });
+                        window.conversationsState.allConversations = allConvs;
+                        window.conversationsState.showAll = true;
+                        const senderState = getCurrentSenderState ? getCurrentSenderState() : {};
+                        if (senderState) { senderState.allConversations = allConvs; senderState.showAll = true; }
+                        renderConversationsDirectly(allConvs, true);
+                        console.log('[LEAD] Tüm konuşmalar yüklendi (lead filtresi yok):', allConvs.length);
+                    } catch (err) {
+                        console.error('[LEAD] Tüm konuşmalar yüklenemedi:', err);
+                    }
+                };
+                
                 // ✅ Kanal filtreleme event listener'ını kur
                 setupChannelFilter();
                 
@@ -3385,6 +3419,7 @@
             
             if (filteredConversations.length === 0) {
                 const leadLabel = leadName || 'Bu lead';
+                const hasSenderSelected = !!(document.getElementById('channelFilterTop') && document.getElementById('channelFilterTop').value);
                 list.innerHTML = `
                     <div class="empty-state">
                         <p>📭 "${leadLabel}" için otomatik eşleşen konuşma bulunamadı</p>
@@ -3392,14 +3427,21 @@
                     </div>
                 `;
                 
-                if (filteredBySender.length > 0) {
+                if (filteredBySender.length > 0 || hasSenderSelected) {
                     const btn = document.createElement('button');
                     btn.className = 'btn btn-primary';
                     btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 12px; cursor: pointer; font-weight: 600;';
-                    btn.textContent = `📋 Tüm Konuşmaları Göster (${filteredBySender.length} konuşma)`;
-                    btn.onclick = () => {
-                        window.conversationsState.showAll = true;
-                        renderConversationsDirectly(filteredBySender, true);
+                    btn.textContent = '📋 Tüm Konuşmaları Göster (seçili numaraya ait tümü)';
+                    btn.onclick = async () => {
+                        btn.disabled = true;
+                        btn.textContent = '⏳ Yükleniyor...';
+                        if (typeof window.loadAllConversationsForSender === 'function') {
+                            await window.loadAllConversationsForSender();
+                        } else {
+                            window.conversationsState.showAll = true;
+                            renderConversationsDirectly(filteredBySender, true);
+                        }
+                        btn.disabled = false;
                     };
                     fragment.appendChild(btn);
                 }
@@ -3518,15 +3560,22 @@
                 fragment.appendChild(item);
             }
             
-            // ✅ Tüm konuşmaları göster butonu (gönderdiğin mantık: showAll=true, aynı liste ile tekrar render)
-            if (!showAll && conversations.length > filteredConversations.length) {
+            // ✅ Tüm konuşmaları göster butonu: Lead filtresi OLMADAN seçili sendere ait tüm konuşmaları API'den çek
+            if (!showAll && (conversations.length > filteredConversations.length || (window.leadId || window.leadName))) {
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-primary';
                 btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 12px; cursor: pointer; font-weight: 600;';
-                btn.textContent = `📋 Tüm Konuşmaları Göster (${conversations.length} konuşma)`;
-                btn.onclick = () => {
-                    window.conversationsState.showAll = true;
-                    renderConversationsDirectly(conversations, true);
+                btn.textContent = '📋 Tüm Konuşmaları Göster (seçili numaraya ait tümü)';
+                btn.onclick = async () => {
+                    btn.disabled = true;
+                    btn.textContent = '⏳ Yükleniyor...';
+                    if (typeof window.loadAllConversationsForSender === 'function') {
+                        await window.loadAllConversationsForSender();
+                    } else {
+                        window.conversationsState.showAll = true;
+                        renderConversationsDirectly(conversations, true);
+                    }
+                    btn.disabled = false;
                 };
                 fragment.appendChild(btn);
             }
