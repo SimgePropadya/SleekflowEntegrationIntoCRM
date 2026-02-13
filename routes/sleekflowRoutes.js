@@ -1341,18 +1341,15 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
                 .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
                 .replace(/\s+/g, ' ').trim();
         };
+        // Sadece isim+soyisim (tam isim) ile eşleşme – tek kelime / isim veya soyisim ile eşleme yok
         const matchNamesBackend = (leadName, convName) => {
             if (!leadName || !convName) return false;
             const nLead = normalizeNameBackend(leadName);
             const nConv = normalizeNameBackend(convName);
+            if (nLead.length < 2) return false;
             if (nLead === nConv) return true;
-            if (nConv.includes(nLead) && nLead.length >= 3) return true;
-            const leadWords = nLead.split(' ').filter(w => w.length >= 2);
-            const convWords = nConv.split(' ').filter(w => w.length >= 2);
-            if (leadWords.length > 0 && convWords.length > 0) {
-                const matching = leadWords.filter(lw => convWords.some(cw => cw === lw));
-                if (matching.length >= Math.min(2, leadWords.length) || (leadWords.length === 1 && leadWords[0].length >= 3 && matching.length === 1)) return true;
-            }
+            if (nConv.startsWith(nLead + ' ')) return true;
+            if (nConv.startsWith(nLead)) return true;
             return false;
         };
         const normPhone = (phone) => {

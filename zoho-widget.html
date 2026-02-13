@@ -1518,26 +1518,17 @@
                 .trim();
         }
         
-        // ✅ İsim eşleştirme fonksiyonu (gevşek: tek kelime/soyisim de yeterli)
+        // ✅ İsim eşleştirme: Sadece isim+soyisim (tam isim) ile eşleşme – tek kelime / isim veya soyisim ile eşleme yok
         function matchNames(leadName, conversationName) {
             if (!leadName || !conversationName) return false;
-            const normalizedLead = normalizeName(leadName);
-            const normalizedConv = normalizeName(conversationName);
+            const normalizedLead = normalizeName(leadName).trim();
+            const normalizedConv = normalizeName(conversationName).trim();
             if (/^(bilinmeyen|unknown)$/i.test(normalizedConv)) return false;
-            if (normalizedLead === normalizedConv) return true;
-            if (normalizedConv.includes(normalizedLead) && normalizedLead.length >= 3) return true;
-            if (normalizedLead.includes(normalizedConv) && normalizedConv.length >= 3) return true;
-            const leadWords = normalizedLead.split(' ').filter(w => w.length >= 2);
-            const convWords = normalizedConv.split(' ').filter(w => w.length >= 2);
-            if (leadWords.length > 0 && convWords.length > 0) {
-                const matchingWords = leadWords.filter(leadWord =>
-                    convWords.some(convWord => convWord === leadWord)
-                );
-                if (matchingWords.length === leadWords.length && (leadWords.length >= 2 || (leadWords.length === 1 && leadWords[0].length >= 3))) return true;
-                if (matchingWords.length >= 2) return true;
-                if (leadWords.length === 1 && leadWords[0].length >= 4 && matchingWords.length === 1) return true;
-                if (matchingWords.length >= 1 && leadWords.some(w => w.length >= 4) && matchingWords.some(w => w.length >= 4)) return true;
-            }
+            if (normalizedLead.length < 2) return false;
+            // Tam isim eşit veya konuşma adı tam lead adı ile başlıyor (örn. "Adil Yaman" = "Adil Yaman" veya "Adil Yaman Mahruse")
+            if (normalizedConv === normalizedLead) return true;
+            if (normalizedConv.startsWith(normalizedLead + ' ')) return true;
+            if (normalizedConv.startsWith(normalizedLead)) return true;
             return false;
         }
         
@@ -3443,10 +3434,11 @@
                 `;
                 
                 if (filteredBySender.length > 0 || hasSenderSelected) {
+                    const totalCount = (window.conversationsState && window.conversationsState.allConversations) ? window.conversationsState.allConversations.length : filteredBySender.length;
                     const btn = document.createElement('button');
                     btn.className = 'btn btn-primary';
                     btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 12px; cursor: pointer; font-weight: 600;';
-                    btn.textContent = '📋 Tüm Konuşmaları Göster (seçili numaraya ait tümü)';
+                    btn.textContent = '📋 Tüm Konuşmaları Göster (' + totalCount + ')';
                     btn.onclick = () => {
                         // Direkt filtreyi kaldır – state'te zaten tüm konuşmalar var (sender seçildiğinde skipLeadFilter=1 ile çekildi), API çağrısı yok
                         window.conversationsState.showAll = true;
@@ -3577,7 +3569,7 @@
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-primary';
                 btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 12px; cursor: pointer; font-weight: 600;';
-                btn.textContent = '📋 Tüm Konuşmaları Göster (seçili numaraya ait tümü)';
+                btn.textContent = '📋 Tüm Konuşmaları Göster (' + conversations.length + ')';
                 btn.onclick = () => {
                     // Direkt filtreyi kaldır – state'te zaten tüm konuşmalar var, API çağrısı yok
                     window.conversationsState.showAll = true;
