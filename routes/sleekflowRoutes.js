@@ -1392,7 +1392,10 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
     
     console.log(`✅ [BACKEND] Conversation mapping: ${senderMappedConversations.length} conversation döndürüldü (orijinal: ${filteredConversations.length}, fromPhone: ${requestedFromPhone || 'yok'})`);
     
-    res.json({ conversations: senderMappedConversations });
+    const payload = { conversations: senderMappedConversations };
+    if (resolvedLeadId) payload.leadId = resolvedLeadId;
+    if (reqLeadName) payload.leadName = reqLeadName;
+    res.json(payload);
 }));
 
 /**

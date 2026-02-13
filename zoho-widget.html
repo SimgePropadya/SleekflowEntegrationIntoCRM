@@ -364,6 +364,7 @@
                 return null;
             }
 
+            const resolvedId = window.leadId || resolveLeadIdFromUrls(null);
             const attempts = [
                 {
                     name: 'ZOHO.CRM.UI.getRecord',
@@ -377,6 +378,10 @@
                     name: 'ZOHO.CRM.UI.getPageInfo',
                     fn: () => window.ZOHO?.CRM?.UI?.getPageInfo?.()
                 },
+                ...(resolvedId ? [{
+                    name: 'ZOHO.CRM.API.getRecord(' + resolvedId + ')',
+                    fn: () => window.ZOHO?.CRM?.API?.getRecord ? window.ZOHO.CRM.API.getRecord({ Entity: "Leads", RecordID: String(resolvedId) }) : undefined
+                }] : []),
                 {
                     name: 'ZOHO.CRM.API.getRecord(current)',
                     fn: () => window.ZOHO?.CRM?.API?.getRecord ? window.ZOHO.CRM.API.getRecord({ Entity: "Leads", RecordID: "current" }) : undefined
@@ -568,11 +573,13 @@
                     }
                 }
                 
-                // YÖNTEM 0.2: ZOHO.CRM.API.getRecord() – İsim SDK cevabından
+                // YÖNTEM 0.2: ZOHO.CRM.API.getRecord() – Önce gerçek leadId ile dene (current 404 veriyor), sonra current
+                var apiRecordLeadId = window.leadId || (function(){ var m = (document.referrer || '').match(/\/tab\/Leads\/(\d{10,})/) || (document.referrer || '').match(/\/Leads\/(\d{10,})/); return m && m[1] ? m[1] : null; })();
                 if (window.ZOHO.CRM && window.ZOHO.CRM.API && typeof window.ZOHO.CRM.API.getRecord === 'function') {
                     try {
-                        console.log('🔍 ZOHO.CRM.API.getRecord() deneniyor...');
-                        window.ZOHO.CRM.API.getRecord({ Entity: "Leads", RecordID: "current" })
+                        var recordIdToTry = (apiRecordLeadId && /^\d{10,}$/.test(apiRecordLeadId)) ? apiRecordLeadId : 'current';
+                        console.log('🔍 ZOHO.CRM.API.getRecord() deneniyor (RecordID:', recordIdToTry, ')...');
+                        window.ZOHO.CRM.API.getRecord({ Entity: "Leads", RecordID: recordIdToTry })
                             .then(function(response) {
                                 console.log('📥 ZOHO.CRM.API.getRecord() response:', response);
                                 var info = normalizeLeadData(response, 'ZOHO.CRM.API.getRecord');
@@ -1270,6 +1277,14 @@
                 
                 const convData = await convResponse.json();
                 const conversations = convData.conversations || [];
+                // ✅ Backend lead filtre uyguladıysa cevapta leadName/leadId döner – frontend'de yoksa buradan al (filtre için)
+                if (convData.leadName && typeof convData.leadName === 'string' && convData.leadName.trim()) {
+                    if (!window.leadName || !String(window.leadName).trim()) {
+                        window.leadName = convData.leadName.trim();
+                        console.log('[LEAD] Backend cevabından leadName alındı → filtre bunu kullanacak:', window.leadName);
+                    }
+                }
+                if (convData.leadId && !window.leadId) window.leadId = convData.leadId;
                 
                 // ✅ KRITIK: API'den gelen unreadCount değerlerini state'e kaydet
                 // AMA: Önceden okunan conversation'lar için unreadCount'u 0 yap (sayfa yenilendiğinde badge tekrar gelmesin)
@@ -1307,34 +1322,35 @@
                     startMessagePolling();
                 }
                 
-                // ✅ İLK YÜKLEMEDE: Her konuşmanın mesaj sayısını kaydet (baseline oluştur) - ARKA PLANDA
-                // Kullanıcıyı bekletmeden paralel olarak çek
+                // ✅ İLK YÜKLEMEDE: Sadece ilk N konuşmanın mesaj sayısını kaydet (baseline) – çok sayıda istek ERR_INSUFFICIENT_RESOURCES önlenir
+                const BASELINE_MAX = 40;
+                const BASELINE_BATCH = 8;
                 setTimeout(async () => {
-                    const baselinePromises = conversations.map(async (conv) => {
-                        const convId = conv.conversationId || conv.id;
-                        if (!convId) return;
-                        
-                        try {
-                            const msgResponse = await fetch(`/api/sleekflow/conversations/${convId}/messages`, {
-                                method: 'GET',
-                                headers: { 'Content-Type': 'application/json' }
-                            });
-                            const msgData = await msgResponse.json();
-                            const msgCount = (msgData.messages || []).length;
-                            lastMessageCount[convId] = msgCount;
-                            // İlk yüklemede unread count sıfır (henüz yeni mesaj yok)
-                            if (!window.conversationsState.unreadCounts[convId]) {
-                                window.conversationsState.unreadCounts[convId] = 0;
+                    const toProcess = conversations.slice(0, BASELINE_MAX);
+                    for (let i = 0; i < toProcess.length; i += BASELINE_BATCH) {
+                        const batch = toProcess.slice(i, i + BASELINE_BATCH);
+                        const batchPromises = batch.map(async (conv) => {
+                            const convId = conv.conversationId || conv.id;
+                            if (!convId) return;
+                            try {
+                                const msgResponse = await fetch(`/api/sleekflow/conversations/${convId}/messages`, {
+                                    method: 'GET',
+                                    headers: { 'Content-Type': 'application/json' }
+                                });
+                                const msgData = await msgResponse.json();
+                                const msgCount = (msgData.messages || []).length;
+                                lastMessageCount[convId] = msgCount;
+                                if (!window.conversationsState.unreadCounts[convId]) {
+                                    window.conversationsState.unreadCounts[convId] = 0;
+                                }
+                            } catch (err) {
+                                lastMessageCount[convId] = 0;
                             }
-                        } catch (err) {
-                            // Sessizce geç
-                            lastMessageCount[convId] = 0;
-                        }
-                    });
-                    
-                    await Promise.all(baselinePromises);
-                    console.log('✅ Baseline mesaj sayıları kaydedildi');
-                }, 1000); // 1 saniye sonra başlat (UI'ın yüklenmesini bekle)
+                        });
+                        await Promise.all(batchPromises);
+                    }
+                    if (toProcess.length) console.log('✅ Baseline mesaj sayıları kaydedildi (ilk ' + toProcess.length + ' konuşma)');
+                }, 1000);
                 
                 // Event dispatch et (app.js dinliyorsa)
                 window.dispatchEvent(new CustomEvent('sleekflowConnected', { 
@@ -3711,12 +3727,16 @@
                                 if (convResponse.ok) {
                                     const convData = await convResponse.json();
                                     const conversations = convData.conversations || [];
+                                    if (convData.leadName && typeof convData.leadName === 'string' && convData.leadName.trim() && !(window.leadName && String(window.leadName).trim())) {
+                                        window.leadName = convData.leadName.trim();
+                                        console.log('[LEAD] Backend cevabından leadName alındı (sender değişti):', window.leadName);
+                                    }
+                                    if (convData.leadId && !window.leadId) window.leadId = convData.leadId;
                                     senderState.allConversations = conversations;
                                     senderState.showAll = false;
                                     window.conversationsState.showAll = false;
-                                    // Önce lead ismine göre filtrelenmiş listeyi göster; altta "Tüm Konuşmaları Gör" çıkar
                                     renderConversationsDirectly(conversations, false);
-                                    console.log('[LEAD] Sender seçildi → lead:', window.leadName || '(yok)', '→ konuşmalar lead\'e göre filtrelendi, Tüm Konuşmaları Gör butonu altta');
+                                    console.log('[LEAD] Sender seçildi → lead:', window.leadName || '(yok)', '→ konuşmalar:', conversations.length);
                                 } else {
                                     console.error('❌ Konuşmalar yüklenemedi:', convResponse.status);
                                 }
