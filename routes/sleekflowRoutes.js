@@ -137,7 +137,7 @@ router.post('/connect', asyncHandler(async (req, res, next) => {
  * Konuşma listesi
  */
 router.get('/conversations', asyncHandler(async (req, res, next) => {
-    const { channel: filterChannel, apiKey, baseUrl, fromPhone: requestedFromPhone, userEmail, userId, leadName: reqLeadNameParam, leadId: reqLeadIdParam, pageReferrer: pageReferrerParam } = req.query;
+    const { channel: filterChannel, apiKey, baseUrl, fromPhone: requestedFromPhone, userEmail, userId, leadName: reqLeadNameParam, leadId: reqLeadIdParam, pageReferrer: pageReferrerParam, skipLeadFilter } = req.query;
     
     // ✅ Helper function: Telefon numarasını temizle (tüm scope'ta erişilebilir)
     const cleanPhone = (phone) => {
@@ -252,11 +252,15 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
         });
     }
 
-    // ✅ TÜM KONUŞMALARI ÇEK - Pagination ile
+    // ✅ TÜM KONUŞMALARI ÇEK - skipLeadFilter=1 ise tek istekte (limit büyük), değilse pagination ile
     const allConversations = [];
     const pageSize = 1000;
+    const maxPages = 100;
     let offset = 0;
     let hasMore = true;
+    let pageCount = 0;
+    const forceSkipLeadFilter = skipLeadFilter === '1' || skipLeadFilter === 'true' || skipLeadFilter === true;
+    const singleRequestLimit = 50000; // "Tüm Konuşmaları Göster" = tek seferde yükle (önceden olduğu gibi)
     
     // ✅ Hamzah için: Channel bilgilerini burada tanımla (scope için)
     const isHamzahRequest = requestedFromPhone && cleanPhone(requestedFromPhone) === '905421363421';
@@ -312,8 +316,17 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
         // ✅ Tüm conversation'ları çek
         // ✅ Hamzah için: Channel name veya channel ID ile filtreleme yap
         while (hasMore) {
-            const params = { limit: pageSize, offset };
-            
+            pageCount++;
+            if (pageCount > maxPages) {
+                console.log(`⚠️ [BACKEND] Maksimum sayfa sayısına (${maxPages}) ulaşıldı, pagination durduruldu.`);
+                break;
+            }
+            // ✅ "Tüm Konuşmaları Göster" (skipLeadFilter=1): Tek istekte hepsini çek – sayfa mantığı yok (önceden olduğu gibi)
+            const useSingleRequest = forceSkipLeadFilter && pageCount === 1;
+            const params = useSingleRequest
+                ? { limit: singleRequestLimit, offset: 0, pageSize: singleRequestLimit }
+                : { limit: pageSize, offset, pageSize };
+
             // ✅ Hamzah için: Channel parametresi ekle
             if (isHamzahRequest && hamzahChannelName) {
                 // ✅ Önce channel name ile dene
@@ -325,15 +338,43 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
 
             try {
                 const data = await sleekflowService.call('get', '/api/conversation/all', { params });
-                const pageConversations = Array.isArray(data) ? data : (data.data || data.items || data.conversations || []);
+                let pageConversations = Array.isArray(data) ? data : null;
+                if (!pageConversations && data && typeof data === 'object') {
+                    const raw = data.data || data.items || data.conversations || data.results || data.list;
+                    if (Array.isArray(raw)) pageConversations = raw;
+                    else if (raw && typeof raw === 'object' && Array.isArray(raw.conversations)) pageConversations = raw.conversations;
+                    else if (raw && typeof raw === 'object' && Array.isArray(raw.data)) pageConversations = raw.data;
+                }
+                if (!pageConversations) pageConversations = [];
 
                 if (!Array.isArray(pageConversations) || pageConversations.length === 0) {
+                    if (offset === 0 && data && typeof data === 'object') {
+                        console.log(`⚠️ [BACKEND] İlk sayfada 0 konuşma – API yanıt yapısı:`, Object.keys(data));
+                    }
                     hasMore = false;
                     break;
                 }
 
                 allConversations.push(...pageConversations);
-                console.log(`✅ [BACKEND] Conversation'lar çekildi: ${pageConversations.length} (toplam: ${allConversations.length}, offset: ${offset})`);
+                const responseTotal = (data && typeof data === 'object') ? (data.total ?? data.totalCount ?? data.totalRecords) : null;
+                const hasMoreByTotal = typeof responseTotal === 'number' && responseTotal > allConversations.length;
+                console.log(`✅ [BACKEND] Conversation'lar çekildi: ${pageConversations.length} (toplam: ${allConversations.length}, offset: ${offset}${responseTotal != null ? `, API total: ${responseTotal}` : ''})`);
+                if (offset === 0 && pageConversations.length > 0 && pageConversations.length < 100) {
+                    console.log(`⚠️ [BACKEND] İlk sayfada az kayıt (${pageConversations.length}) – API yanıtı:`, typeof data === 'object' ? Object.keys(data) : 'array');
+                }
+
+                if (useSingleRequest) {
+                    hasMore = false; // Tek istekte hepsi alındı, döngüyü kes
+                } else if (pageConversations.length < pageSize) {
+                    if (hasMoreByTotal) {
+                        offset += pageSize;
+                        hasMore = true;
+                    } else {
+                        hasMore = false;
+                    }
+                } else {
+                    offset += pageSize;
+                }
                 
                 // ✅ DEBUG: İlk conversation'ın raw data'sını logla (Hamzah için)
                 if (isHamzahRequest && offset === 0 && pageConversations.length > 0) {
@@ -370,12 +411,6 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
                         fromPhone: firstConv.fromPhone || '(yok)',
                         from: firstConv.from || '(yok)'
                     });
-                }
-
-                if (pageConversations.length < pageSize) {
-                    hasMore = false;
-                } else {
-                    offset += pageSize;
                 }
             } catch (conversationError) {
                 // ✅ Eğer channel parametresi 400 hatası veriyorsa, channel parametresini kaldır ve tekrar dene
@@ -1261,10 +1296,15 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
         }
     }
 
+    // ✅ LEAD: "Tüm Konuşmaları Göster" için skipLeadFilter=1 gelirse lead filtresi UYGULANMAZ (o numaraya ait tüm konuşmalar döner)
+    const forceSkipLeadFilter = skipLeadFilter === '1' || skipLeadFilter === 'true' || skipLeadFilter === true;
+    if (forceSkipLeadFilter) {
+        logger.info('Lead filtre atlandi (skipLeadFilter=1) – tum konusmalar dondurulecek');
+    }
     // ✅ LEAD: leadId query'den, YOKSA pageReferrer (Zoho sayfa URL) query'den cikar
-    logger.info('Lead filtre parametreleri (gelen)', { leadId: reqLeadIdParam, pageReferrer: pageReferrerParam ? '(var)' : '(yok)', leadName: reqLeadNameParam ? '(var)' : '(yok)' });
-    let resolvedLeadId = (typeof reqLeadIdParam === 'string' && reqLeadIdParam.trim()) ? String(reqLeadIdParam).replace(/\D/g, '').trim() : '';
-    if (!resolvedLeadId && typeof pageReferrerParam === 'string' && pageReferrerParam) {
+    logger.info('Lead filtre parametreleri (gelen)', { leadId: reqLeadIdParam, pageReferrer: pageReferrerParam ? '(var)' : '(yok)', leadName: reqLeadNameParam ? '(var)' : '(yok)', skipLeadFilter: !!forceSkipLeadFilter });
+    let resolvedLeadId = forceSkipLeadFilter ? '' : ((typeof reqLeadIdParam === 'string' && reqLeadIdParam.trim()) ? String(reqLeadIdParam).replace(/\D/g, '').trim() : '');
+    if (!resolvedLeadId && !forceSkipLeadFilter && typeof pageReferrerParam === 'string' && pageReferrerParam) {
         const ref = decodeURIComponent(pageReferrerParam);
         const m = ref.match(/\/tab\/Leads\/(\d{10,})/) || ref.match(/\/crm\/[^/]+\/tab\/Leads\/(\d{10,})/) || ref.match(/\/Leads\/(\d{10,})/);
         if (m && m[1]) {

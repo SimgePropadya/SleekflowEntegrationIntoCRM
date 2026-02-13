@@ -1323,8 +1323,9 @@
                     const channelFilterTop = document.getElementById('channelFilterTop');
                     const selectedSenderPhone = channelFilterTop && channelFilterTop.value ? channelFilterTop.value : '';
                     const fromPhoneParam = selectedSenderPhone ? `&fromPhone=${encodeURIComponent(selectedSenderPhone)}` : '';
-                    let url = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(apiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}`;
+                    let url = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(apiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}&skipLeadFilter=1`;
                     url = (typeof addUserParamsToUrl === 'function') ? addUserParamsToUrl(url) : url;
+                    console.log('[LEAD] Tüm Konuşmaları Göster isteği (lead filtresi YOK):', url.replace(apiKey, apiKey.substring(0,8)+'...'));
                     try {
                         const res = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
                         if (!res.ok) throw new Error('Konuşmalar yüklenemedi');
