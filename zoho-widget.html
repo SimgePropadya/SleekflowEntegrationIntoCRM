@@ -2983,8 +2983,9 @@
                     }
                 }
                 
-                // Mesaj içeriği – olduğu gibi (trim yok: boşluk, satır, noktalama, sembol korunur)
-                const textContent = (msg.text || msg.messageContent || msg.content || '');
+                // Mesaj içeriği – template düzenlemesi uygula (noktadan sonra boşluk, * ayrımı, liste, bitişik kelime)
+                const rawText = (msg.text || msg.messageContent || msg.content || '');
+                const textContent = (typeof window.formatTemplateText === 'function' ? window.formatTemplateText(rawText) : rawText);
                 
                 // ✅ Mesaj içeriğini göster
                 if (mediaHtml || textContent) {
@@ -4497,26 +4498,33 @@
             });
         }
         
-        // ✅ Template metnini düzenle: liste satırları, noktadan sonra boşluk, kelime ayrımları
+        // ✅ Template / mesaj metnini düzenle: liste, noktalama sonrası boşluk, * ile yapışıklık, kelime ayrımları
         function formatTemplateText(text) {
             if (!text || typeof text !== 'string') return text;
             let s = text;
-            // Nokta, ünlem, soru işaretinden sonra boşluk yoksa ekle (ardından harf/rakam varsa)
+            // Nokta, ünlem, soru işaretinden sonra boşluk yoksa ekle
             s = s.replace(/\.([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '. $1');
             s = s.replace(/!([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '! $1');
             s = s.replace(/\?([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '? $1');
+            // İki nokta üst üsteden sonra boşluk yoksa ekle
+            s = s.replace(/:([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, ': $1');
             // Virgül ve noktalı virgülden sonra boşluk yoksa ekle
             s = s.replace(/,([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, ', $1');
             s = s.replace(/;([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '; $1');
-            // Liste: "1." "2." veya "- " "* " "• " aynı satırda yapışıksa önlerine satır başı ekle
+            // Yıldız(*) / çift yıldız(**) ardından harf yapışıksa boşluk ekle (PRO!*A -> PRO!* A, CITY:**AGENTS -> CITY:** AGENTS)
+            s = s.replace(/(\*+)([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '$1 $2');
+            // Küçük harften sonra büyük harf (bitişik kelime): detailsReply -> details Reply
+            s = s.replace(/([a-zğüşıöç])([A-ZĞÜŞİÖÇ])/g, '$1 $2');
+            // Liste: "1." "2." veya "- " "• " aynı satırda yapışıksa önlerine satır başı ekle (* tek başına bold için kullanıldığından liste için atlanıyor)
             s = s.replace(/([^\n])(\s*)(\d+[.)]\s*)/g, '$1\n$3');
-            s = s.replace(/([^\n])(\s*)([-*•]\s+)/g, '$1\n$3');
+            s = s.replace(/([^\n])(\s*)([-•]\s+)/g, '$1\n$3');
             // Birden fazla boşluğu tek boşluğa indir (satır içi)
             s = s.replace(/[ \t]+/g, ' ');
             // Satır sonlarındaki boşlukları temizle
             s = s.replace(/ +$/gm, '');
             return s.trim();
         }
+        window.formatTemplateText = formatTemplateText;
         
         // ✅ Template seçme fonksiyonu - Medya desteği ile
         window.selectTemplate = async function(templateId) {
