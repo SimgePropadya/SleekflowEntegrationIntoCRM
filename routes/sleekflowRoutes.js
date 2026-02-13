@@ -321,11 +321,8 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
                 console.log(`⚠️ [BACKEND] Maksimum sayfa sayısına (${maxPages}) ulaşıldı, pagination durduruldu.`);
                 break;
             }
-            // ✅ "Tüm Konuşmaları Göster" (skipLeadFilter=1): Tek istekte hepsini çek – sayfa mantığı yok (önceden olduğu gibi)
-            const useSingleRequest = forceSkipLeadFilter && pageCount === 1;
-            const params = useSingleRequest
-                ? { limit: singleRequestLimit, offset: 0, pageSize: singleRequestLimit }
-                : { limit: pageSize, offset, pageSize };
+            // ✅ API genelde sayfada max 1000 döndürüyor; skipLeadFilter=1 olsa bile sayfa sayfa çek (3000+ konuşma için)
+            const params = { limit: pageSize, offset, pageSize };
 
             // ✅ Hamzah için: Channel parametresi ekle
             if (isHamzahRequest && hamzahChannelName) {
@@ -363,9 +360,7 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
                     console.log(`⚠️ [BACKEND] İlk sayfada az kayıt (${pageConversations.length}) – API yanıtı:`, typeof data === 'object' ? Object.keys(data) : 'array');
                 }
 
-                if (useSingleRequest) {
-                    hasMore = false; // Tek istekte hepsi alındı, döngüyü kes
-                } else if (pageConversations.length < pageSize) {
+                if (pageConversations.length < pageSize) {
                     if (hasMoreByTotal) {
                         offset += pageSize;
                         hasMore = true;
@@ -1341,16 +1336,20 @@ router.get('/conversations', asyncHandler(async (req, res, next) => {
                 .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
                 .replace(/\s+/g, ' ').trim();
         };
-        // Sadece isim+soyisim (tam isim) ile eşleşme – tek kelime / isim veya soyisim ile eşleme yok
+        // İsim+soyisim ikisi de konuşma adında olmalı (sıra önemsiz). Tek kelime ile eşleme yok.
         const matchNamesBackend = (leadName, convName) => {
             if (!leadName || !convName) return false;
             const nLead = normalizeNameBackend(leadName);
             const nConv = normalizeNameBackend(convName);
             if (nLead.length < 2) return false;
-            if (nLead === nConv) return true;
-            if (nConv.startsWith(nLead + ' ')) return true;
-            if (nConv.startsWith(nLead)) return true;
-            return false;
+            const leadWords = nLead.split(/\s+/).filter(w => w.length >= 2);
+            if (leadWords.length === 0) return false;
+            if (leadWords.length === 1) {
+                if (nConv === nLead) return true;
+                if (nConv.startsWith(nLead + ' ') || nConv.startsWith(nLead)) return true;
+                return false;
+            }
+            return leadWords.every(word => nConv.includes(word));
         };
         const normPhone = (phone) => {
             const d = String(phone || '').replace(/\D/g, '');

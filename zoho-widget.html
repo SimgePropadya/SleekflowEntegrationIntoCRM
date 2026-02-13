@@ -1518,18 +1518,22 @@
                 .trim();
         }
         
-        // ✅ İsim eşleştirme: Sadece isim+soyisim (tam isim) ile eşleşme – tek kelime / isim veya soyisim ile eşleme yok
+        // ✅ İsim eşleştirme: İsim+soyisim ikisi de konuşma adında olmalı (sıra önemsiz; Adil Yaman = "Adil Yaman" veya "Yaman Adil")
         function matchNames(leadName, conversationName) {
             if (!leadName || !conversationName) return false;
             const normalizedLead = normalizeName(leadName).trim();
             const normalizedConv = normalizeName(conversationName).trim();
             if (/^(bilinmeyen|unknown)$/i.test(normalizedConv)) return false;
             if (normalizedLead.length < 2) return false;
-            // Tam isim eşit veya konuşma adı tam lead adı ile başlıyor (örn. "Adil Yaman" = "Adil Yaman" veya "Adil Yaman Mahruse")
-            if (normalizedConv === normalizedLead) return true;
-            if (normalizedConv.startsWith(normalizedLead + ' ')) return true;
-            if (normalizedConv.startsWith(normalizedLead)) return true;
-            return false;
+            const leadWords = normalizedLead.split(/\s+/).filter(w => w.length >= 2);
+            if (leadWords.length === 0) return false;
+            if (leadWords.length === 1) {
+                if (normalizedConv === normalizedLead) return true;
+                if (normalizedConv.startsWith(normalizedLead + ' ') || normalizedConv.startsWith(normalizedLead)) return true;
+                return false;
+            }
+            // İsim+soyisim: lead'deki her kelime konuşma adında geçmeli (Adil Yaman = "Adil Yaman", "Yaman Adil" hepsi eşleşir)
+            return leadWords.every(word => normalizedConv.includes(word));
         }
         
         // ✅ Global state - Sender'a göre ayrı state tut
