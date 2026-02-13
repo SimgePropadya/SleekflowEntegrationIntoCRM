@@ -3372,17 +3372,11 @@
             window.conversationsState.filteredConversations = filteredConversations;
             const leadFilterInfoEl = document.getElementById('leadFilterInfo');
             if (leadFilterInfoEl) {
-                if (showAll || leadName === '') {
-                    leadFilterInfoEl.style.display = 'none';
-                    if (!showAll && leadName === '' && window.leadId && String(window.leadId).trim()) {
-                        console.warn('[LEAD] Lead ID var ama isim yok – filtre uygulanamıyor.', { leadId: window.leadId });
-                    } else if (!showAll && leadName === '' && !window.leadId) {
-                        console.warn('[LEAD] Lead ID yok.', { referrer: document.referrer || '(boş)' });
-                    }
-                } else {
-                    const escapeHtml = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
-                    leadFilterInfoEl.innerHTML = `👤 <strong>${escapeHtml(leadName)}</strong> için <strong>${filteredConversations.length}</strong> konuşma eşlendi${filteredByChannel.length !== filteredConversations.length ? ` (${filteredByChannel.length} konuşma arasından)` : ''}`;
-                    leadFilterInfoEl.style.display = 'block';
+                leadFilterInfoEl.style.display = 'none';
+                if (!showAll && leadName === '' && window.leadId && String(window.leadId).trim()) {
+                    console.warn('[LEAD] Lead ID var ama isim yok – filtre uygulanamıyor.', { leadId: window.leadId });
+                } else if (!showAll && leadName === '' && !window.leadId) {
+                    console.warn('[LEAD] Lead ID yok.', { referrer: document.referrer || '(boş)' });
                 }
             }
             
