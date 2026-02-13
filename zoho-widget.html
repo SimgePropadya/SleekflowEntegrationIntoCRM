@@ -1244,21 +1244,27 @@
                 const selectedSenderPhone = channelFilterTop && channelFilterTop.value ? channelFilterTop.value : '';
                 const fromPhoneParam = selectedSenderPhone ? `&fromPhone=${encodeURIComponent(selectedSenderPhone)}` : '';
                 
+                // Lead sayfasında + sender seçiliyse: tüm konuşmaları çek (skipLeadFilter=1), ekranda lead filtresi uygula; butona basınca direkt açılır
+                const isLeadPageWithSender = selectedSenderPhone && (window.leadId || (window.leadName && String(window.leadName).trim()));
                 let conversationsUrl = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(apiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}`;
-                if (window.leadName && String(window.leadName).trim()) {
-                    conversationsUrl += '&leadName=' + encodeURIComponent(String(window.leadName).trim());
+                if (isLeadPageWithSender) {
+                    conversationsUrl += '&skipLeadFilter=1';
+                } else {
+                    if (window.leadName && String(window.leadName).trim()) {
+                        conversationsUrl += '&leadName=' + encodeURIComponent(String(window.leadName).trim());
+                    }
+                    let leadIdForRequest = window.leadId || (() => { const p = new URLSearchParams(window.location.search); return p.get('recordId') || p.get('leadId') || p.get('id') || ''; })();
+                    if (!leadIdForRequest || /^[\$#\{\}]|recordid$/i.test(String(leadIdForRequest).trim()) || !/^\d{10,}$/.test(String(leadIdForRequest).trim())) {
+                        const ref = document.referrer || '';
+                        const m = ref.match(/\/tab\/Leads\/(\d{10,})/) || ref.match(/\/crm\/[^/]+\/tab\/Leads\/(\d{10,})/) || ref.match(/\/Leads\/(\d{10,})/);
+                        leadIdForRequest = (m && m[1]) ? m[1] : '';
+                    }
+                    if (leadIdForRequest && String(leadIdForRequest).trim()) {
+                        conversationsUrl += '&leadId=' + encodeURIComponent(String(leadIdForRequest).trim());
+                    }
+                    var pageRef = (typeof document !== 'undefined' && document.referrer) ? document.referrer : '';
+                    if (pageRef) conversationsUrl += '&pageReferrer=' + encodeURIComponent(pageRef);
                 }
-                let leadIdForRequest = window.leadId || (() => { const p = new URLSearchParams(window.location.search); return p.get('recordId') || p.get('leadId') || p.get('id') || ''; })();
-                if (!leadIdForRequest || /^[\$#\{\}]|recordid$/i.test(String(leadIdForRequest).trim()) || !/^\d{10,}$/.test(String(leadIdForRequest).trim())) {
-                    const ref = document.referrer || '';
-                    const m = ref.match(/\/tab\/Leads\/(\d{10,})/) || ref.match(/\/crm\/[^/]+\/tab\/Leads\/(\d{10,})/) || ref.match(/\/Leads\/(\d{10,})/);
-                    leadIdForRequest = (m && m[1]) ? m[1] : '';
-                }
-                if (leadIdForRequest && String(leadIdForRequest).trim()) {
-                    conversationsUrl += '&leadId=' + encodeURIComponent(String(leadIdForRequest).trim());
-                }
-                var pageRef = (typeof document !== 'undefined' && document.referrer) ? document.referrer : '';
-                if (pageRef) conversationsUrl += '&pageReferrer=' + encodeURIComponent(pageRef);
                 conversationsUrl = addUserParamsToUrl(conversationsUrl);
                 
                 const convResponse = await fetch(conversationsUrl, {
@@ -1277,6 +1283,14 @@
                 
                 const convData = await convResponse.json();
                 const conversations = convData.conversations || [];
+                // Lead sayfası + sender ile tüm listeyi çektikse state'e kaydet (butona basınca direkt açılsın)
+                if (isLeadPageWithSender) {
+                    window.conversationsState.allConversations = conversations;
+                    const senderState = getCurrentSenderState ? getCurrentSenderState() : null;
+                    if (senderState) senderState.allConversations = conversations;
+                    window.conversationsState.showAll = false;
+                    if (senderState) senderState.showAll = false;
+                }
                 // ✅ Backend lead filtre uyguladıysa cevapta leadName/leadId döner – frontend'de yoksa buradan al (filtre için)
                 if (convData.leadName && typeof convData.leadName === 'string' && convData.leadName.trim()) {
                     if (!window.leadName || !String(window.leadName).trim()) {
@@ -3433,16 +3447,13 @@
                     btn.className = 'btn btn-primary';
                     btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 12px; cursor: pointer; font-weight: 600;';
                     btn.textContent = '📋 Tüm Konuşmaları Göster (seçili numaraya ait tümü)';
-                    btn.onclick = async () => {
-                        btn.disabled = true;
-                        btn.textContent = '⏳ Yükleniyor...';
-                        if (typeof window.loadAllConversationsForSender === 'function') {
-                            await window.loadAllConversationsForSender();
-                        } else {
-                            window.conversationsState.showAll = true;
-                            renderConversationsDirectly(filteredBySender, true);
-                        }
-                        btn.disabled = false;
+                    btn.onclick = () => {
+                        // Direkt filtreyi kaldır – state'te zaten tüm konuşmalar var (sender seçildiğinde skipLeadFilter=1 ile çekildi), API çağrısı yok
+                        window.conversationsState.showAll = true;
+                        const senderState = getCurrentSenderState ? getCurrentSenderState() : null;
+                        if (senderState) senderState.showAll = true;
+                        const currentAll = window.conversationsState.allConversations || filteredBySender || [];
+                        renderConversationsDirectly(currentAll, true);
                     };
                     fragment.appendChild(btn);
                 }
@@ -3567,20 +3578,17 @@
                 btn.className = 'btn btn-primary';
                 btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 12px; cursor: pointer; font-weight: 600;';
                 btn.textContent = '📋 Tüm Konuşmaları Göster (seçili numaraya ait tümü)';
-                btn.onclick = async () => {
-                    btn.disabled = true;
-                    btn.textContent = '⏳ Yükleniyor...';
-                    if (typeof window.loadAllConversationsForSender === 'function') {
-                        await window.loadAllConversationsForSender();
-                    } else {
-                        window.conversationsState.showAll = true;
-                        renderConversationsDirectly(conversations, true);
-                    }
-                    btn.disabled = false;
+                btn.onclick = () => {
+                    // Direkt filtreyi kaldır – state'te zaten tüm konuşmalar var, API çağrısı yok
+                    window.conversationsState.showAll = true;
+                    const senderState = getCurrentSenderState ? getCurrentSenderState() : null;
+                    if (senderState) senderState.showAll = true;
+                    const currentAll = window.conversationsState.allConversations || conversations || [];
+                    renderConversationsDirectly(currentAll, true);
                 };
                 fragment.appendChild(btn);
             }
-            
+
             // ✅ Tek seferde DOM'a ekle
             list.innerHTML = '';
             list.appendChild(fragment);
@@ -3760,10 +3768,8 @@
                             await getCurrentZohoUser();
                             
                             const fromPhoneParam = `&fromPhone=${encodeURIComponent(selectedValue)}`;
-                            let convUrl = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(savedApiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}`;
-                            if (window.leadName && String(window.leadName).trim()) convUrl += '&leadName=' + encodeURIComponent(String(window.leadName).trim());
-                            if (window.leadId && String(window.leadId).trim()) convUrl += '&leadId=' + encodeURIComponent(String(window.leadId).trim());
-                            if (document.referrer) convUrl += '&pageReferrer=' + encodeURIComponent(document.referrer);
+                            // Sender seçildiğinde o numaraya ait TÜM konuşmaları çek; state'e kaydet, ekranda lead filtresi ile göster. Butona basınca sadece filtre kalkar (tekrar istek yok).
+                            let convUrl = `/api/sleekflow/conversations?apiKey=${encodeURIComponent(savedApiKey)}${safeBaseUrl ? '&baseUrl=' + encodeURIComponent(safeBaseUrl) : ''}${fromPhoneParam}&skipLeadFilter=1`;
                             convUrl = addUserParamsToUrl(convUrl);
                             
                             if (savedApiKey && savedApiKey.trim().length >= 10) {
@@ -3777,10 +3783,11 @@
                                     }
                                     if (convData.leadId && !window.leadId) window.leadId = convData.leadId;
                                     senderState.allConversations = conversations;
+                                    window.conversationsState.allConversations = conversations;
                                     senderState.showAll = false;
                                     window.conversationsState.showAll = false;
                                     renderConversationsDirectly(conversations, false);
-                                    console.log('[LEAD] Sender seçildi → lead:', window.leadName || '(yok)', '→ konuşmalar:', conversations.length);
+                                    console.log('[LEAD] Sender seçildi → tüm konuşmalar state\'te (' + conversations.length + '), ekranda lead filtresi (butona basınca hepsi açılır):', conversations.length);
                                 } else {
                                     console.error('❌ Konuşmalar yüklenemedi:', convResponse.status);
                                 }
