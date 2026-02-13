@@ -1918,7 +1918,8 @@
                 return;
             }
             
-            const text = messageInput ? messageInput.value.trim() : '';
+            const rawText = messageInput ? messageInput.value.trim() : '';
+            const text = (typeof window.formatTemplateText === 'function' ? window.formatTemplateText(rawText) : rawText);
             const hasFiles = window.selectedFiles && window.selectedFiles.length > 0;
             
             if (!text && !hasFiles) {
@@ -1929,7 +1930,7 @@
             // ✅ Sadece butonu disable et (input açık kalsın, kullanıcı yazmaya devam edebilsin)
             if (sendButton) sendButton.disabled = true;
             
-            // ✅ OPTIMISTIC UPDATE: Mesajı hemen UI'a ekle (text veya dosya varsa)
+            // ✅ OPTIMISTIC UPDATE: Mesajı hemen UI'a ekle (text veya dosya varsa) – gönderilen metin formatlanmış
             let tempMessageId = null;
             if ((text || hasFiles) && messagesList) {
                 tempMessageId = 'temp_' + Date.now();
@@ -4683,10 +4684,10 @@
             // ✅ Parametre input'larını oluştur - SADECE TEXT VE URL
             let html = '<p style="margin-bottom: 16px; color: #666;">Lütfen template parametrelerini doldurun:</p>';
             
-            // ✅ Mesaj preview alanı
+            // ✅ Mesaj önizleme (otomatik formatlanmış hali burada görünür, gönderilirken de aynı düzgün metin gider)
             html += `
                 <div id="templateMessagePreview" style="margin-bottom: 20px; padding: 16px; border: 2px solid #6366f1; border-radius: 8px; background: #f0f4ff;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #6366f1;">📋 Mesaj Önizleme:</label>
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #6366f1;">📋 Mesaj önizleme (karşı tarafa bu düzgün hali gidecek):</label>
                     <div id="templatePreviewContent" style="padding: 12px; background: white; border-radius: 6px; min-height: 50px; white-space: pre-wrap; word-wrap: break-word; color: #333; font-size: 14px; line-height: 1.6;">
                         ${(template.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -4756,20 +4757,17 @@
             updateTemplatePreview();
         };
         
-        // ✅ Template mesaj preview'ını güncelle
+        // ✅ Template mesaj önizlemesini güncelle (otomatik formatlanmış metin gösterilir)
         window.updateTemplatePreview = function() {
             if (!window.selectedTemplate || !window.selectedTemplateVariables) return;
             
             const template = window.selectedTemplate;
             const variables = window.selectedTemplateVariables;
-            const previewContent = document.getElementById('templatePreviewContent');
+            const previewEl = document.getElementById('templatePreviewContent');
             
-            if (!previewContent) return;
+            if (!previewEl) return;
             
-            // ✅ Template içeriğini al
             let previewText = template.content || '';
-            
-            // ✅ Parametreleri yerleştir
             variables.forEach(varNum => {
                 const textInput = document.getElementById(`templateParam_${varNum}`);
                 if (textInput) {
@@ -4777,9 +4775,8 @@
                     previewText = previewText.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), value);
                 }
             });
-            
-            // ✅ Preview'ı güncelle
-            previewContent.textContent = previewText;
+            previewText = (typeof window.formatTemplateText === 'function' ? window.formatTemplateText(previewText) : previewText);
+            previewEl.textContent = previewText;
         };
         
         // ✅ Template parametre modalını kapat
@@ -4832,10 +4829,22 @@
                 return;
             }
             
+            // ✅ Gönderilecek metin: template + parametreler birleştirilir, otomatik formatlanır, karşı tarafa düzgün gider
+            let composed = template.content || '';
+            variables.forEach(varNum => {
+                const val = params[varNum] || '';
+                composed = composed.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), val);
+            });
+            const finalText = (typeof window.formatTemplateText === 'function' ? window.formatTemplateText(composed) : composed).trim();
+            if (!finalText) {
+                alert('Mesaj metni boş olamaz.');
+                return;
+            }
+            
             // ✅ Modal'ı kapat
             closeTemplateParametersModal();
             
-            // ✅ Template mesajını gönder
+            // ✅ Template mesajını gönder (otomatik düzeltilmiş metin ile)
             // ✅ Conversation ID'yi bul
             let conversationId = null;
             
@@ -4877,9 +4886,9 @@
             }
             
             try {
-                // ✅ Sadece text ve URL parametreler - JSON ile gönder
+                // ✅ Gönderilecek metin: kullanıcının modal'da düzenleyip gönderdiği finalText (zaten yukarıda formatlandı)
                 const payload = {
-                    text: template.content || '',
+                    text: finalText,
                     templateId: template.id || template.name,
                     templateName: template.name,
                     templateParams: params,
