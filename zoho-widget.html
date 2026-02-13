@@ -4497,6 +4497,27 @@
             });
         }
         
+        // ✅ Template metnini düzenle: liste satırları, noktadan sonra boşluk, kelime ayrımları
+        function formatTemplateText(text) {
+            if (!text || typeof text !== 'string') return text;
+            let s = text;
+            // Nokta, ünlem, soru işaretinden sonra boşluk yoksa ekle (ardından harf/rakam varsa)
+            s = s.replace(/\.([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '. $1');
+            s = s.replace(/!([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '! $1');
+            s = s.replace(/\?([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '? $1');
+            // Virgül ve noktalı virgülden sonra boşluk yoksa ekle
+            s = s.replace(/,([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, ', $1');
+            s = s.replace(/;([a-zA-Z0-9ğüşıöçĞÜŞİÖÇ])/g, '; $1');
+            // Liste: "1." "2." veya "- " "* " "• " aynı satırda yapışıksa önlerine satır başı ekle
+            s = s.replace(/([^\n])(\s*)(\d+[.)]\s*)/g, '$1\n$3');
+            s = s.replace(/([^\n])(\s*)([-*•]\s+)/g, '$1\n$3');
+            // Birden fazla boşluğu tek boşluğa indir (satır içi)
+            s = s.replace(/[ \t]+/g, ' ');
+            // Satır sonlarındaki boşlukları temizle
+            s = s.replace(/ +$/gm, '');
+            return s.trim();
+        }
+        
         // ✅ Template seçme fonksiyonu - Medya desteği ile
         window.selectTemplate = async function(templateId) {
             const templatesModal = document.getElementById('templatesModal');
@@ -4518,8 +4539,11 @@
                 templatesModal.style.display = 'none';
             }
             
+            // ✅ Seçildiği anda metni düzenle (liste, noktadan sonra boşluk, kelime ayrımları)
+            const templateContent = formatTemplateText(template.content || '');
+            template.content = templateContent;
+            
             // ✅ Template içinde değişken alanlar var mı kontrol et ({{1}}, {{2}}, vb.)
-            const templateContent = template.content || '';
             const variablePattern = /\{\{(\d+)\}\}/g;
             const variables = [];
             let match;
@@ -4655,8 +4679,8 @@
             html += `
                 <div id="templateMessagePreview" style="margin-bottom: 20px; padding: 16px; border: 2px solid #6366f1; border-radius: 8px; background: #f0f4ff;">
                     <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #6366f1;">📋 Mesaj Önizleme:</label>
-                    <div id="templatePreviewContent" style="padding: 12px; background: white; border-radius: 6px; min-height: 50px; white-space: pre-wrap; word-wrap: break-word; color: #333; font-size: 14px; line-height: 1.5;">
-                        ${template.content || ''}
+                    <div id="templatePreviewContent" style="padding: 12px; background: white; border-radius: 6px; min-height: 50px; white-space: pre-wrap; word-wrap: break-word; color: #333; font-size: 14px; line-height: 1.6;">
+                        ${(template.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
                 </div>
             `;
